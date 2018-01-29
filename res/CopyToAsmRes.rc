@@ -1,0 +1,6 @@
+#define MANIFEST 						24
+1						MANIFEST  DISCARDABLE "CopyToAsm.xml"
+99						ICON      DISCARDABLE "Images/copytoasmlogo.ico"
+100						RCDATA    DISCARDABLE "Images/copytoasm_main.png"
+101						RCDATA    DISCARDABLE "Images/copytoasm_clipboard.png"
+102						RCDATA    DISCARDABLE "Images/copytoasm_refview.png"

@@ -1,0 +1,3 @@
+#include "Res/CopyToAsmDlg.rc"
+#include "Res/CopyToAsmRes.rc"
+#include "Res/CopyToAsmVer.rc"

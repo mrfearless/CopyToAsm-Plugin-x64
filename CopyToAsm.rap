@@ -1,0 +1,157 @@
+[Project]
+Assembler=UASM64
+Type=Dll64 Project
+Description=CopyToAsm
+Backup=$P\Bak\
+Group=1
+GroupExpand=1
+Res.rc=1
+Ver.rc=1
+[Files]
+1=CopyToAsm.Asm
+2=CopyToAsm.Inc
+3=CopyToAsm.Def
+4=CopyToAsm.rc
+5=
+6=CopyToAsm-readme.txt
+[MakeFiles]
+0=CopyToAsm.rap
+1=CopyToAsm.rc
+2=CopyToAsm.asm
+3=CopyToAsm.obj
+4=CopyToAsm.res
+5=CopyToAsm.exe
+6=CopyToAsm.def
+7=CopyToAsm.dll
+8=CopyToAsm.txt
+9=CopyToAsm.lib
+10=CopyToAsm.mak
+11=CopyToAsm.hla
+12=CopyToAsm.com
+13=CopyToAsm.ocx
+14=CopyToAsm.idl
+15=CopyToAsm.tlb
+16=CopyToAsm.sys
+17=CopyToAsm.dp64
+18=CopyToAsm.pdb
+[MakeDef]
+Menu=1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0
+1=4,O,$B\RC.EXE /v,1
+2=3,O,$B\UASM64.EXE /c -win64 -Zp8 /Zi /win64 /D_WIN64 /Cp /nologo /W2 /I"$I",2
+3=7,O,$B\LINK.EXE /SUBSYSTEM:WINDOWS /RELEASE /DLL /DEF:$6 /LIBPATH:"$L" /OUT:"$17",3,4
+4=0,0,,5
+5=rsrc.obj,O,$B\CVTRES.EXE,rsrc.res
+6=*.obj,O,$B\UASM64.EXE /c -win64 -Zp8 /Zi /win64 /D_WIN64 /Cp /nologo /W2 /I"$I",*.asm
+7=0,0,"$E\x64\x64dbg",5
+11=4,O,$B\RC.EXE /v,1
+12=3,O,$B\UASM64.EXE /c -win64 -Zp8 /Zi /win64 /D_WIN64 /Cp /nologo /W2 /Zi /Zd /nologo /I"$I",2
+13=7,O,$B\LINK.EXE /SUBSYSTEM:WINDOWS /DEBUG /DEBUGTYPE:CV /PDB:"$18" /DLL /DEF:$6 /LIBPATH:"$L" /OUT:"$17",3,4
+14=0,0,,5
+15=rsrc.obj,O,$B\CVTRES.EXE,rsrc.res
+16=*.obj,O,$B\UASM64.EXE /c -win64 -Zp8 /Zi /win64 /D_WIN64 /Cp /nologo /W2 /I"$I",*.asm
+17=0,0,"$E\x64\x64dbg",$.exe
+[Resource]
+1=,1,8,CopyToAsm.xml
+2=,99,2,Images\copytoasmlogo.ico
+3=,100,7,Images\copytoasm_main.png
+4=,101,7,Images\copytoasm_clipboard.png
+5=,102,7,Images\copytoasm_refview.png
+[StringTable]
+[Accel]
+[VerInf]
+Nme=VERINF1
+ID=1
+FV=1.0.0.0
+PV=1.0.0.0
+VerOS=0x00000004
+VerFT=0x00000002
+VerLNG=0x00000409
+VerCHS=0x000004B0
+ProductVersion=1.0.0.0
+ProductName=CopyToAsm
+OriginalFilename=CopyToAsm.dll
+LegalTrademarks=fearless (C) 2018 www.LetTheLight.in
+LegalCopyright=fearless (C) 2018 www.LetTheLight.in
+InternalName=CopyToAsm.dp64
+FileDescription=CopyToAsm x64 plugin for x64dbg
+FileVersion=1.0.0.0
+CompanyName=fearless @ www.LetTheLight.in
+[Group]
+Group=Assembly,Resources,Misc
+1=1
+2=1
+3=1
+4=2
+5=
+6=3
+7=
+8=
+9=
+10=
+11=
+[AutoLoad]
+AutoLoad=3,2,1
+[Size]
+5=
+1=0,0,0,0,33875
+2=0,0,0,0,2384
+3=0,0,0,0,0
+[RADebugBP]
+2=
+1=
+[Find]
+1="utoa_ex"
+[VersionControl]
+Settings=1279
+Milestones=129
+MilestoneEvery=10
+MilestoneEveryCurrent=0
+MilestoneOnBuild=0.0.0.0
+MilestoneOnTime=2
+MilestoneOnDate=0
+MilestoneOnDateWhen=1
+MilestoneOnDateStatus=0
+MilestoneOnDateDate=29
+MilestoneOnDateTimeYear=2018
+MilestoneOnDateTimeMonth=1
+MilestoneOnDateTimeDate=29
+MilestoneOnDateTimeHour=17
+MilestoneOnDateTimeMin=6
+MilestoneOnDateTimeSec=48
+MilestoneOnDateTimeStatus=0
+BackupLocation=M:\radasm\UASM64\Projects\VCBackups\
+CompressionLevel=0
+DefaultComment=Project $N, $Z, Backup Created On $D At $T.
+ExcludeExt1=\
+ExcludeExt2=\
+ExcludeExt3=\
+ExcludeExt4=\
+FileVerLength=4
+FileVer2Range=0
+FileVer3Range=0
+FileVer4Range=0
+ProductVerLength=4
+ProductVer2Range=0
+ProductVer3Range=0
+ProductVer4Range=0
+[PTimer]
+PTimer=5963934
+[Collapse]
+1=8320,327816,17055744,
+2=
+3=
+[GroupExpand]
+GroupExpand=1,1,1,0
+[BookMark]
+0=
+1=
+2=
+3=
+4=
+5=
+6=
+7=
+8=
+9=
+[BreakPoint]
+0=
