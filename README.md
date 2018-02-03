@@ -1,6 +1,6 @@
 # CopyToAsm Plugin (x64) - A Plugin For x64dbg
 
-![](https://github.com/mrfearless/CopyToAsm-Plugin-x64/blob/master/images/copytoasmlogo.png) [Current version: 1.0.0.0 - Last updated: 29/01/2018](https://github.com/mrfearless/CopyToAsm-Plugin-x64/releases/latest) For the x86 version of this plugin, visit [here](https://github.com/mrfearless/CopyToAsm-Plugin-x86)
+![](https://github.com/mrfearless/CopyToAsm-Plugin-x64/blob/master/images/copytoasmlogo.png) [Current version: 1.0.0.1 - Last updated: 03/02/2018](https://github.com/mrfearless/CopyToAsm-Plugin-x64/releases/latest) For the x86 version of this plugin, visit [here](https://github.com/mrfearless/CopyToAsm-Plugin-x86)
 
 ## Overview
 
@@ -8,13 +8,12 @@ A plugin to copy a selected disassembly range in the x64dbg cpu view tab and con
 
 ## Features
 
-* Copy selected range to masm style assembler code.
+* Copy selected range to assembler style code.
 * Outputs assembler code to clipboard or reference view.
 * Adds labels for jump destinations.
 * Adjusts jump instructions to point to added labels.
 * Indicates if jump destinations are outside selection range.
 * Code comments to indicate start/end and outside range.
-* Removes '0x' from values and appends 'h' for masm style hex values.
 
 ## How to install
 

@@ -2,7 +2,7 @@
 ;
 ; CopyToAsm-readme.txt
 ;
-; v1.0.0.0 - Last updated 29/01/2018
+; v1.0.0.1 - Last updated 03/02/2018
 ;
 ;-------------------------------------------------------------------------------------
 
@@ -27,16 +27,17 @@ a masm compatible style assembler code and output to clipboard or the reference 
 Features
 --------
 
-- Copy selected range to masm style assembler code.
+- Copy selected range to assembler style code.
 - Outputs assembler code to clipboard or reference view.
 - Adds labels for jump destinations.
 - Adjusts jump instructions to point to added labels.
 - Indicates if jump destinations are outside selection range.
 - Code comments to indicate start/end and outside range.
-- Removes '0x' from values and appends 'h' for masm style hex values.
+
 
 
 Notes
 -----
 
 - 29/01/2018 first release
+- 03/02/2018 v1.0.0.1

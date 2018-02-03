@@ -17,18 +17,18 @@ option stackbase : rsp
 _WIN64 EQU 1
 WINVER equ 0501h
 
-DEBUG64 EQU 1
-
-IFDEF DEBUG64
-    PRESERVEXMMREGS equ 1
-    includelib \JWasm\lib\x64\Debug64.lib
-    DBG64LIB equ 1
-    DEBUGEXE textequ <'\Jwasm\bin\DbgWin.exe'>
-    include \JWasm\include\debug64.inc
-    .DATA
-    RDBG_DbgWin	DB DEBUGEXE,0
-    .CODE
-ENDIF
+;DEBUG64 EQU 1
+;
+;IFDEF DEBUG64
+;    PRESERVEXMMREGS equ 1
+;    includelib \JWasm\lib\x64\Debug64.lib
+;    DBG64LIB equ 1
+;    DEBUGEXE textequ <'\Jwasm\bin\DbgWin.exe'>
+;    include \JWasm\include\debug64.inc
+;    .DATA
+;    RDBG_DbgWin	DB DEBUGEXE,0
+;    .CODE
+;ENDIF
 
 Include x64dbgpluginsdk.inc               ; Main x64dbg Plugin SDK for your program, and prototypes for the main exports 
 
@@ -36,6 +36,8 @@ include x64dbgpluginsdk_x64.inc
 includelib x64dbgpluginsdk_x64.lib
 
 Include CopyToAsm.inc                   ; plugin's include file
+
+Include CopyToAsmIni.asm
 
 pluginit	        PROTO :QWORD            ; Required prototype and export for x64dbg plugin SDK
 plugstop            PROTO                   ; Required prototype and export for x64dbg plugin SDK
@@ -69,6 +71,7 @@ hMenu               DD ?
 hMenuDisasm         DD ?
 hMenuDump           DD ?
 hMenuStack          DD ?
+hMenuOptions        DD ?
 ;-------------------------------------------------------------------------------------
 
 
@@ -115,6 +118,15 @@ pluginit PROC FRAME USES RBX initStruct:QWORD
     mov pluginHandle, eax
     
     ; Do any other initialization here
+    ; Construct plugin's .ini file from module filename
+    Invoke GetModuleFileName, 0, Addr szModuleFilename, SIZEOF szModuleFilename
+    Invoke GetModuleFileName, hInstance, Addr CopyToAsmIni, SIZEOF CopyToAsmIni
+    Invoke szLen, Addr CopyToAsmIni
+    lea rbx, CopyToAsmIni
+    add rbx, rax
+    sub rbx, 4 ; move back past 'dp64' extention
+    mov byte ptr [rbx], 0 ; null so we can use lstrcat
+    Invoke lstrcat, rbx, Addr szIni ; add 'ini' to end of string instead
 
 	mov rax, TRUE
 	ret
@@ -155,7 +167,7 @@ plugstop endp
 ;-------------------------------------------------------------------------------------
 plugsetup PROC FRAME USES RBX setupStruct:QWORD
     LOCAL hIconData:ICONDATA
-    
+    LOCAL hIconDataOptions:ICONDATA
     mov rbx, setupStruct
 
     ; Extract handles from setupStruct which is a pointer to a PLUG_SETUPSTRUCT structure  
@@ -171,11 +183,32 @@ plugsetup PROC FRAME USES RBX setupStruct:QWORD
     mov hMenuStack, eax
     
     ; Do any setup here: add menus, menu items, callback and commands etc
-    Invoke _plugin_menuaddentry, hMenu, MENU_COPYTOASM_CLPB1, Addr szCopyToAsmMenuClip    
+     Invoke _plugin_menuaddentry, hMenu, MENU_COPYTOASM_CLPB1, Addr szCopyToAsmMenuClip    
+    Invoke _plugin_menuaddentry, hMenu, MENU_COPYTOASM_REFV1, Addr szCopyToAsmMenuRefv
+    Invoke _plugin_menuaddseparator, hMenu
+    Invoke _plugin_menuadd, hMenu, Addr szCTACommentOptions
+    mov hMenuOptions, eax    
+    ;Invoke _plugin_menuaddentry, hMenu, MENU_COPYTOASM_FMT1, Addr szCopyToAsmFormat
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTARANGELABELS1, Addr szCTAOutsideRangeLabels
+    Invoke _plugin_menuaddseparator, hMenuOptions
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTACMTRANGE1, Addr szCTACmntOutsideRange
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTACMTJMPDEST1, Addr szCTACmntJmpDest
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTACMTCALLDEST1, Addr szCTACmntCallDest
+    Invoke CTALoadMenuIcon, IMG_MENU_OPTIONS, Addr hIconDataOptions
+    Invoke _plugin_menuseticon, hMenuOptions, Addr hIconDataOptions
+
     Invoke _plugin_menuaddentry, hMenuDisasm, MENU_COPYTOASM_CLPB2, Addr szCopyToAsmMenuClip
-    
-    Invoke _plugin_menuaddentry, hMenu, MENU_COPYTOASM_REFV1, Addr szCopyToAsmMenuRefv    
-    Invoke _plugin_menuaddentry, hMenuDisasm, MENU_COPYTOASM_REFV2, Addr szCopyToAsmMenuRefv    
+    Invoke _plugin_menuaddentry, hMenuDisasm, MENU_COPYTOASM_REFV2, Addr szCopyToAsmMenuRefv
+    Invoke _plugin_menuaddseparator, hMenuDisasm
+    Invoke _plugin_menuadd, hMenuDisasm, Addr szCTACommentOptions
+    mov hMenuOptions, eax
+    ;Invoke _plugin_menuaddentry, hMenuDisasm, MENU_COPYTOASM_FMT2, Addr szCopyToAsmFormat
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTARANGELABELS2, Addr szCTAOutsideRangeLabels
+    Invoke _plugin_menuaddseparator, hMenuOptions
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTACMTRANGE2, Addr szCTACmntOutsideRange
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTACMTJMPDEST2, Addr szCTACmntJmpDest
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTACMTCALLDEST2, Addr szCTACmntCallDest
+    Invoke _plugin_menuseticon, hMenuOptions, Addr hIconDataOptions
 
     Invoke CTALoadMenuIcon, IMG_COPYTOASM_MAIN, Addr hIconData
     .IF rax == TRUE
@@ -194,6 +227,57 @@ plugsetup PROC FRAME USES RBX setupStruct:QWORD
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_COPYTOASM_REFV1, Addr hIconData
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_COPYTOASM_REFV2, Addr hIconData
     .ENDIF
+
+    Invoke CTALoadMenuIcon, IMG_MENU_CHECK, Addr hImgCheck
+    Invoke CTALoadMenuIcon, IMG_MENU_NOCHECK, Addr hImgNoCheck
+    
+    Invoke IniGetOutsideRangeLabels
+    mov g_OutsideRangeLabels, rax
+    .IF rax == 1
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTARANGELABELS1, Addr hImgCheck
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTARANGELABELS2, Addr hImgCheck
+        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeNormal
+    .ELSE
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTARANGELABELS1, Addr hImgNoCheck
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTARANGELABELS2, Addr hImgNoCheck
+        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeMasm
+    .ENDIF
+    
+    Invoke IniGetCmntOutsideRange
+    mov g_CmntOutsideRange, rax
+    .IF rax == 1
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTRANGE1, Addr hImgCheck
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTRANGE2, Addr hImgCheck
+        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeNormal
+    .ELSE
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTRANGE1, Addr hImgNoCheck
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTRANGE2, Addr hImgNoCheck
+        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeMasm
+    .ENDIF
+    
+    Invoke IniGetCmntJumpDest
+    mov g_CmntJumpDest, rax
+    .IF rax == 1
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTJMPDEST1, Addr hImgCheck
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTJMPDEST2, Addr hImgCheck
+        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeNormal
+    .ELSE
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTJMPDEST1, Addr hImgNoCheck
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTJMPDEST2, Addr hImgNoCheck
+        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeMasm
+    .ENDIF
+    
+    Invoke IniGetCmntCallDest
+    mov g_CmntCallDest, rax
+    .IF rax == 1
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTCALLDEST1, Addr hImgCheck
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTCALLDEST2, Addr hImgCheck
+        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeNormal
+    .ELSE
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTCALLDEST1, Addr hImgNoCheck
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTCALLDEST2, Addr hImgNoCheck
+        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeMasm
+    .ENDIF    
 
     Invoke GuiAddLogMessage, Addr szCopyToAsmInfo
     Invoke GuiGetWindowHandle
@@ -216,6 +300,7 @@ plugsetup endp
 ;-------------------------------------------------------------------------------------
 CBMENUENTRY PROC FRAME USES RBX cbType:QWORD, cbInfo:QWORD
     mov rbx, cbInfo
+    xor rax, rax    
     mov eax, [rbx].PLUG_CB_MENUENTRY.hEntry
     
     .IF eax == MENU_COPYTOASM_CLPB1 || eax == MENU_COPYTOASM_CLPB2
@@ -227,7 +312,7 @@ CBMENUENTRY PROC FRAME USES RBX cbType:QWORD, cbInfo:QWORD
             Invoke DoCopyToAsm, 0 ; clipboard
         .ENDIF
         
-    .ELSEIF eax == MENU_COPYTOASM_REFV1 || MENU_COPYTOASM_REFV2
+    .ELSEIF eax == MENU_COPYTOASM_REFV1 || eax == MENU_COPYTOASM_REFV2
        Invoke DbgIsDebugging
         .IF rax == FALSE
             Invoke GuiAddStatusBarMessage, Addr szDebuggingRequired
@@ -236,6 +321,83 @@ CBMENUENTRY PROC FRAME USES RBX cbType:QWORD, cbInfo:QWORD
             Invoke DoCopyToAsm, 1 ; refview
         .ENDIF
         
+   
+    .ELSEIF eax == MENU_COPYTOASM_FMT1 || eax == MENU_COPYTOASM_FMT2
+        mov rax, g_FormatType
+        .IF rax == 1
+            mov g_FormatType, 0
+            Invoke IniSetFormatType, 0
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_COPYTOASM_FMT1, Addr hImgNoCheck
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_COPYTOASM_FMT2, Addr hImgNoCheck
+            ;Invoke GuiAddLogMessage, Addr szLogFormatTypeNormal
+        .ELSE
+            mov g_FormatType, 1
+            Invoke IniSetFormatType, 1
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_COPYTOASM_FMT1, Addr hImgCheck
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_COPYTOASM_FMT2, Addr hImgCheck
+            ;Invoke GuiAddLogMessage, Addr szLogFormatTypeMasm
+        .ENDIF
+
+    .ELSEIF eax == MENU_CTARANGELABELS1 || eax == MENU_CTARANGELABELS2
+
+        mov rax, g_OutsideRangeLabels
+        .IF rax == 1
+            mov g_OutsideRangeLabels, 0
+            Invoke IniSetOutsideRangeLabels, 0
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTARANGELABELS1, Addr hImgNoCheck
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTARANGELABELS2, Addr hImgNoCheck
+        .ELSE
+            mov g_OutsideRangeLabels, 1
+            Invoke IniSetOutsideRangeLabels, 1
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTARANGELABELS1, Addr hImgCheck
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTARANGELABELS2, Addr hImgCheck
+        .ENDIF
+
+    .ELSEIF eax == MENU_CTACMTRANGE1 || eax == MENU_CTACMTRANGE2
+
+        mov rax, g_CmntOutsideRange
+        .IF rax == 1
+            mov g_CmntOutsideRange, 0
+            Invoke IniSetCmntOutsideRange, 0
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTRANGE1, Addr hImgNoCheck
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTRANGE2, Addr hImgNoCheck
+        .ELSE
+            mov g_CmntOutsideRange, 1
+            Invoke IniSetCmntOutsideRange, 1
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTRANGE1, Addr hImgCheck
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTRANGE2, Addr hImgCheck
+        .ENDIF
+
+    .ELSEIF eax == MENU_CTACMTJMPDEST1 || eax == MENU_CTACMTJMPDEST2
+
+        mov rax, g_CmntJumpDest
+        .IF rax == 1
+            mov g_CmntJumpDest, 0
+            Invoke IniSetCmntJumpDest, 0
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTJMPDEST1, Addr hImgNoCheck
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTJMPDEST2, Addr hImgNoCheck
+        .ELSE
+            mov g_CmntJumpDest, 1
+            Invoke IniSetCmntJumpDest, 1
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTJMPDEST1, Addr hImgCheck
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTJMPDEST2, Addr hImgCheck
+        .ENDIF
+
+    .ELSEIF eax == MENU_CTACMTCALLDEST1 || eax == MENU_CTACMTCALLDEST2
+
+        mov rax, g_CmntCallDest
+        .IF rax == 1
+            mov g_CmntCallDest, 0
+            Invoke IniSetCmntCallDest, 0
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTCALLDEST1, Addr hImgNoCheck
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTCALLDEST2, Addr hImgNoCheck
+        .ELSE
+            mov g_CmntCallDest, 1
+            Invoke IniSetCmntCallDest, 1
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTCALLDEST1, Addr hImgCheck
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTCALLDEST2, Addr hImgCheck
+        .ENDIF        
+
     .ENDIF
     
     mov rax, TRUE
@@ -294,12 +456,14 @@ CTALoadMenuIcon ENDP
 ;-------------------------------------------------------------------------------------
 DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
     LOCAL bii:BASIC_INSTRUCTION_INFO ; basic 
+    LOCAL cbii:BASIC_INSTRUCTION_INFO ; call destination    
     LOCAL sel:SELECTIONDATA
     LOCAL sellength:QWORD
     LOCAL qwStartAddress:QWORD
     LOCAL qwFinishAddress:QWORD
     LOCAL qwCurrentAddress:QWORD
     LOCAL JmpDestination:QWORD
+    LOCAL CallDestination:QWORD
     LOCAL ptrClipboardData:QWORD
     LOCAL LenClipData:QWORD
     LOCAL pClipData:QWORD
@@ -332,6 +496,8 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
     ; Get some info for user
     ;----------------------------------
     Invoke ModNameFromAddr, sel.start, Addr szModuleName, TRUE
+    Invoke ModNameFromAddr, sel.start, Addr szModuleNameStrip, FALSE
+    Invoke szCatStr, Addr szModuleNameStrip, Addr szDot    
     Invoke ModBaseFromAddr, sel.start
     mov ModBase, rax
 
@@ -388,12 +554,13 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
         Invoke szCatStr, ptrClipboardData, Addr szCRLF
         Invoke szCatStr, ptrClipboardData, Addr szCRLF
     
-    
-        ;----------------------------------
-        ; Labels Before
-        ;----------------------------------
-        Invoke CTAOutputLabelsOutsideRangeBefore, qwStartAddress, ptrClipboardData
-    
+        
+        .IF g_OutsideRangeLabels == 1
+            ;----------------------------------
+            ; Labels Before
+            ;----------------------------------
+            Invoke CTAOutputLabelsOutsideRangeBefore, qwStartAddress, ptrClipboardData
+        .ENDIF
     
         ;----------------------------------
         ; Start Information
@@ -402,21 +569,23 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
         Invoke qw2hex, qwStartAddress, Addr szValueString
         Invoke szCatStr, ptrClipboardData, Addr szHex
         Invoke szCatStr, ptrClipboardData, Addr szValueString
-        Invoke szCatStr, ptrClipboardData, Addr szOffsetLeftBracket
-        Invoke utoa_ex, qwStartAddress, Addr szValueString, 10, FALSE, TRUE
-        Invoke szCatStr, ptrClipboardData, Addr szValueString
-        Invoke szCatStr, ptrClipboardData, Addr szRightBracket
+        ;Invoke szCatStr, ptrClipboardData, Addr szOffsetLeftBracket
+        ;Invoke utoa_ex, qwStartAddress, Addr szValueString, 10, FALSE, TRUE
+        ;Invoke szCatStr, ptrClipboardData, Addr szValueString
+        ;Invoke szCatStr, ptrClipboardData, Addr szRightBracket
         Invoke szCatStr, ptrClipboardData, Addr szCRLF
         
     .ELSE ; output to reference view
 
         Invoke CTA_AddColumnsToRefView, qwStartAddress, qwFinishAddress
         
-        ;----------------------------------
-        ; Labels Before
-        ;----------------------------------        
-        Invoke CTARefViewLabelsOutsideRangeBefore, qwStartAddress, qwCTALIndex
-        mov qwCTALIndex, rax
+        .IF g_OutsideRangeLabels == 1
+            ;----------------------------------
+            ; Labels Before
+            ;----------------------------------        
+            Invoke CTARefViewLabelsOutsideRangeBefore, qwStartAddress, qwCTALIndex
+            mov qwCTALIndex, rax
+        .ENDIF
 
     .ENDIF
 
@@ -441,16 +610,70 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
             .ENDIF
         .ENDIF
         
+        Invoke RtlZeroMemory, Addr bii, SIZEOF BASIC_INSTRUCTION_INFO
         Invoke DbgDisasmFastAt, qwCurrentAddress, Addr bii
         movzx rax, byte ptr bii.call_
         movzx rbx, byte ptr bii.branch
         
         .IF rax == 1 && rbx == 1 ; we have call statement
             Invoke GuiGetDisassembly, qwCurrentAddress, Addr szDisasmText
+            mov rax, bii.address
+            mov CallDestination, rax
+            Invoke RtlZeroMemory, Addr cbii, SIZEOF BASIC_INSTRUCTION_INFO
+            Invoke DbgDisasmFastAt, CallDestination, Addr cbii
+            
+            ;mov rax, cbii.address
+            ;.IF rax == 0
+                mov rax, bii.address
+            ;.ENDIF
+            mov JmpDestination, rax
             Invoke Strip_x64dbg_calls, Addr szDisasmText, Addr szCALLFunction
             Invoke szCopy, Addr szCall, Addr szFormattedDisasmText
             Invoke szCatStr, Addr szFormattedDisasmText, Addr szCALLFunction
-        
+            
+            ;mov rax, bii.address
+            ;PrintQWORD rax
+            ;mov rax, cbii.address
+            ;PrintQWORD rax
+            
+            ;movzx eax, byte ptr cbii.call_
+            ;PrintDWORD eax
+            ;movzx eax, byte ptr cbii.branch
+            ;PrintDWORD eax
+            
+            
+            ;movzx eax, byte ptr cbii.branch
+            mov rax, bii.address
+            .IF eax == 0 ; external function call
+            .ELSE ; internal function call
+                Invoke qw2hex, JmpDestination, Addr szValueString
+                .IF g_CmntOutsideRange == 1
+                    mov rax, qwStartAddress
+                    mov rbx, qwFinishAddress
+                    .IF JmpDestination < rax || JmpDestination > rbx
+                        Invoke szCatStr, Addr szFormattedDisasmText, Addr szCmnt
+                        Invoke szCatStr, Addr szFormattedDisasmText, Addr szDestJmp
+                        Invoke szCatStr, Addr szFormattedDisasmText, Addr szHex
+                        Invoke szCatStr, Addr szFormattedDisasmText, Addr szValueString
+                        Invoke szCatStr, Addr szFormattedDisasmText, Addr szCommentOutsideRange2
+                    .ELSE
+                        .IF g_CmntCallDest == 1
+                            Invoke szCatStr, Addr szFormattedDisasmText, Addr szCmnt
+                            Invoke szCatStr, Addr szFormattedDisasmText, Addr szDestJmp
+                            Invoke szCatStr, Addr szFormattedDisasmText, Addr szHex
+                            Invoke szCatStr, Addr szFormattedDisasmText, Addr szValueString
+                        .ENDIF
+                    .ENDIF
+                .ELSE
+                    .IF g_CmntCallDest == 1
+                        Invoke szCatStr, Addr szFormattedDisasmText, Addr szCmnt
+                        Invoke szCatStr, Addr szFormattedDisasmText, Addr szDestJmp
+                        Invoke szCatStr, Addr szFormattedDisasmText, Addr szHex
+                        Invoke szCatStr, Addr szFormattedDisasmText, Addr szValueString
+                    .ENDIF
+                .ENDIF
+            .ENDIF
+
         .ELSEIF rax == 0 && rbx == 1 ; jumps
             Invoke DbgGetBranchDestination, qwCurrentAddress
             mov JmpDestination, rax
@@ -466,22 +689,16 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
             Invoke GuiGetDisassembly, qwCurrentAddress, Addr szDisasmText
             Invoke CTAAddressInJmpTable, JmpDestination
             .IF rax != 0
-                Invoke CTAJmpLabelFromJmpEntry, rax, bOutsideRange, Addr szDisasmText, Addr szFormattedDisasmText
+                Invoke CTAJmpLabelFromJmpEntry, rax, JmpDestination, bOutsideRange, Addr szDisasmText, Addr szFormattedDisasmText
             .ELSE
-                PrintText 'jmp destination not in CTAAddressInJmpTable!'
+                ;PrintText 'jmp destination not in CTAAddressInJmpTable!'
             .ENDIF
 
         .ELSE ; normal non jump or call instructions
             Invoke GuiGetDisassembly, qwCurrentAddress, Addr szDisasmText
             Invoke Strip_x64dbg_segments, Addr szDisasmText, Addr szFormattedDisasmText
-
-            mov eax, bii.type_
-            .IF rax == TYPE_VALUE
-                Invoke szCatStr, Addr szFormattedDisasmText, Addr szMasmHexH
-            .ELSEIF rax == TYPE_MEMORY || rax == (TYPE_VALUE or TYPE_MEMORY)
-                Invoke szCopy, Addr szFormattedDisasmText, Addr szDisasmText 
-                Invoke CTAMnemonicToMasmHex, Addr szDisasmText, Addr szFormattedDisasmText, Addr bii
-            .ENDIF
+            Invoke Strip_x64dbg_anglebrackets, Addr szFormattedDisasmText, Addr szDisasmText
+            Invoke Strip_x64dbg_modulename, Addr szDisasmText, Addr szFormattedDisasmText
 
         .ENDIF
         
@@ -511,26 +728,29 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
         Invoke qw2hex, qwFinishAddress, Addr szValueString
         Invoke szCatStr, ptrClipboardData, Addr szHex
         Invoke szCatStr, ptrClipboardData, Addr szValueString
-        Invoke szCatStr, ptrClipboardData, Addr szOffsetLeftBracket
-        Invoke utoa_ex, qwFinishAddress, Addr szValueString, 10, FALSE, TRUE
-        Invoke szCatStr, ptrClipboardData, Addr szValueString
-        Invoke szCatStr, ptrClipboardData, Addr szRightBracket
+        ;Invoke szCatStr, ptrClipboardData, Addr szOffsetLeftBracket
+        ;Invoke utoa_ex, qwFinishAddress, Addr szValueString, 10, FALSE, TRUE
+        ;Invoke szCatStr, ptrClipboardData, Addr szValueString
+        ;Invoke szCatStr, ptrClipboardData, Addr szRightBracket
         Invoke szCatStr, ptrClipboardData, Addr szCRLF
         ;Invoke szCatStr, ptrClipboardData, Addr szCRLF
     
-    
-        ;----------------------------------
-        ; Labels After
-        ;----------------------------------
-        Invoke CTAOutputLabelsOutsideRangeAfter, qwFinishAddress, ptrClipboardData
+        .IF g_OutsideRangeLabels == 1
+            ;----------------------------------
+            ; Labels After
+            ;----------------------------------
+            Invoke CTAOutputLabelsOutsideRangeAfter, qwFinishAddress, ptrClipboardData
+        .ENDIF
         
     .ELSE
 
-        ;----------------------------------
-        ; Labels After
-        ;----------------------------------    
-        Invoke CTARefViewLabelsOutsideRangeAfter, qwFinishAddress, qwCTALIndex
-        mov qwCTALIndex, rax
+        .IF g_OutsideRangeLabels == 1
+            ;----------------------------------
+            ; Labels After
+            ;----------------------------------    
+            Invoke CTARefViewLabelsOutsideRangeAfter, qwFinishAddress, qwCTALIndex
+            mov qwCTALIndex, rax
+        .ENDIF
     
     .ENDIF
 
@@ -780,9 +1000,11 @@ CTAOutputLabelsOutsideRangeBefore PROC FRAME USES RBX qwStartAddress:QWORD, pDat
             Invoke CTALabelFromJmpEntry, rax, Addr szLabelX
             Invoke szCatStr, pDataBuffer, Addr szCRLF 
             Invoke szCatStr, pDataBuffer, Addr szLabelX
-            Invoke qw2hex, qwAddress, Addr szValueString
-            Invoke szCatStr, pDataBuffer, Addr szCmntStart
-            Invoke szCatStr, pDataBuffer, Addr szValueString
+            .IF g_CmntJumpDest == 1
+                Invoke qw2hex, qwAddress, Addr szValueString
+                Invoke szCatStr, pDataBuffer, Addr szCmntStart
+                Invoke szCatStr, pDataBuffer, Addr szValueString
+            .ENDIF
             Invoke szCatStr, pDataBuffer, Addr szCRLF            
 
         .ENDIF
@@ -825,12 +1047,12 @@ CTARefViewLabelsOutsideRangeBefore PROC FRAME USES RBX qwStartAddress:QWORD, qwC
             mov rax, nJmpEntry
             inc rax ; for 1 based index            
             Invoke CTALabelFromJmpEntry, rax, Addr szLabelX
-            
             Invoke szCopy, Addr szLabelX, Addr szFormattedDisasmText
-            Invoke qw2hex, qwAddress, Addr szValueString
-            Invoke szCatStr, Addr szFormattedDisasmText, Addr szCmntStart
-            Invoke szCatStr, Addr szFormattedDisasmText, Addr szValueString
-
+            .IF g_CmntJumpDest == 1
+                Invoke qw2hex, qwAddress, Addr szValueString
+                Invoke szCatStr, Addr szFormattedDisasmText, Addr szCmntStart
+                Invoke szCatStr, Addr szFormattedDisasmText, Addr szValueString
+            .ENDIF
             Invoke CTA_AddRowToRefView, qwCTALIndex, Addr szFormattedDisasmText
             inc qwCTALIndex
 
@@ -878,9 +1100,11 @@ CTAOutputLabelsOutsideRangeAfter PROC FRAME USES RBX qwFinishAddress:QWORD, pDat
             Invoke CTALabelFromJmpEntry, rax, Addr szLabelX
             Invoke szCatStr, pDataBuffer, Addr szCRLF 
             Invoke szCatStr, pDataBuffer, Addr szLabelX
-            Invoke qw2hex, qwAddress, Addr szValueString
-            Invoke szCatStr, pDataBuffer, Addr szCmntStart
-            Invoke szCatStr, pDataBuffer, Addr szValueString
+            .IF g_CmntJumpDest == 1
+                Invoke qw2hex, qwAddress, Addr szValueString
+                Invoke szCatStr, pDataBuffer, Addr szCmntStart
+                Invoke szCatStr, pDataBuffer, Addr szValueString
+            .ENDIF
             Invoke szCatStr, pDataBuffer, Addr szCRLF
 
         .ENDIF
@@ -923,12 +1147,12 @@ CTARefViewLabelsOutsideRangeAfter PROC FRAME USES RBX qwFinishAddress:QWORD, qwC
             mov rax, nJmpEntry
             inc rax ; for 1 based index            
             Invoke CTALabelFromJmpEntry, rax, Addr szLabelX
-            
             Invoke szCopy, Addr szLabelX, Addr szFormattedDisasmText
-            Invoke qw2hex, qwAddress, Addr szValueString
-            Invoke szCatStr, Addr szFormattedDisasmText, Addr szCmntStart
-            Invoke szCatStr, Addr szFormattedDisasmText, Addr szValueString
-
+            .IF g_CmntJumpDest == 1
+                Invoke qw2hex, qwAddress, Addr szValueString
+                Invoke szCatStr, Addr szFormattedDisasmText, Addr szCmntStart
+                Invoke szCatStr, Addr szFormattedDisasmText, Addr szValueString
+            .ENDIF
             Invoke CTA_AddRowToRefView, qwCTALIndex, Addr szFormattedDisasmText
             inc qwCTALIndex
 
@@ -965,7 +1189,7 @@ CTALabelFromJmpEntry ENDP
 ;-------------------------------------------------------------------------------------
 ; Creates string for jump xxx instruction "jxxx LABEL_X" from dwJmpEntry number x
 ;-------------------------------------------------------------------------------------
-CTAJmpLabelFromJmpEntry PROC FRAME USES RDI RSI qwJmpEntry:QWORD, bOutsideRange:QWORD, lpszJxxx:QWORD, lpszJumpLabel:QWORD
+CTAJmpLabelFromJmpEntry PROC FRAME USES RDI RSI qwJmpEntry:QWORD, qwAddress:QWORD, bOutsideRange:QWORD, lpszJxxx:QWORD, lpszJumpLabel:QWORD
     LOCAL szValue[16]:BYTE
     LOCAL szJmp[16]:BYTE
     
@@ -993,8 +1217,21 @@ CTAJmpLabelFromJmpEntry PROC FRAME USES RDI RSI qwJmpEntry:QWORD, bOutsideRange:
         ;Invoke szCatStr, lpszJumpLabel, Addr szJmp
         Invoke szCatStr, lpszJumpLabel, Addr szLabel
         Invoke szCatStr, lpszJumpLabel, Addr szValue
+        .IF g_CmntJumpDest == 1
+            Invoke szCatStr, lpszJumpLabel, Addr szCmnt
+            Invoke szCatStr, lpszJumpLabel, Addr szDestJmp
+            Invoke qw2hex, qwAddress, Addr szValueString
+            Invoke szCatStr, lpszJumpLabel, Addr szHex
+            Invoke szCatStr, lpszJumpLabel, Addr szValueString
+        .ENDIF
         .IF bOutsideRange == TRUE
-            Invoke szCatStr, lpszJumpLabel, Addr szCommentOutsideRange
+           .IF g_CmntOutsideRange == 1
+                .IF g_CmntJumpDest == 1
+                    Invoke szCatStr, lpszJumpLabel, Addr szCommentOutsideRange2
+                .ELSE
+                    Invoke szCatStr, lpszJumpLabel, Addr szCommentOutsideRange
+                .ENDIF
+            .ENDIF
         .ENDIF
         ;Invoke szCatStr, lpszLabel, Addr szCRLF
     .ENDIF
@@ -1057,44 +1294,57 @@ CTAMnemonicToMasmHex ENDP
 ; Returns true if succesful and lpszAPIFunction will contain the stripped api function name, otherwise false and lpszAPIFunction will be a null string
 ;-------------------------------------------------------------------------------------
 Strip_x64dbg_calls PROC FRAME USES RDI RSI lpszCallText:QWORD, lpszAPIFunction:QWORD
-
-    mov rsi, lpszCallText
-    mov rdi, lpszAPIFunction
     
-    movzx rax, byte ptr [rsi]
-    .WHILE al != '.' && al != '&' ; 64bit have & in the api calls, so to check for that as well
-        .IF al == 0h
-            mov rdi, lpszAPIFunction
-            mov byte ptr [rdi], 0h ; null out string
-            mov rax, FALSE
-            ret
-        .ENDIF
-        inc rsi
+    .IF lpszCallText != 0
+        mov rsi, lpszCallText
+        mov rdi, lpszAPIFunction
+        
         movzx rax, byte ptr [rsi]
-    .ENDW
-
-    inc rsi ; jump over the . and the first _ if its there
-    movzx rax, byte ptr [rsi]
-    .IF al == '_'
-        inc rsi
-    .ENDIF
-
-    movzx rax, byte ptr [rsi]
-    .WHILE al != '@' && al != '>'
-        .IF al == 0h
-            mov rdi, lpszAPIFunction
-            mov byte ptr [rdi], 0h ; null out string
-            mov rax, FALSE
-            ret
-        .ENDIF
-        mov byte ptr [rdi], al
-        inc rdi
-        inc rsi
-        movzx rax, byte ptr [rsi]
-    .ENDW
-    mov byte ptr [rdi], 0h ; null out string
+        .WHILE al != '.' && al != '&' ; 64bit have & in the api calls, so to check for that as well
+            .IF al == 0h ; ended here, maybe have a call eax or call rax type call
+                ; go back and look for space instead
+                mov rsi, lpszCallText
+                mov rdi, lpszAPIFunction
+                movzx rax, byte ptr [rsi]
+                .WHILE al != ' '
+                    .IF al == 0h ; reached end of string and no . and no & and no space now?
+                        mov byte ptr [rdi], 0h ;
+                        mov rax, FALSE
+                        ret
+                    .ENDIF
+                    inc rsi
+                    movzx rax, byte ptr [rsi]
+                .ENDW
+                .BREAK
+            .ENDIF
+            inc rsi
+            movzx rax, byte ptr [rsi]
+        .ENDW
     
-    mov rax, TRUE
+        inc rsi ; jump over the . and the first _ if its there
+        movzx rax, byte ptr [rsi]
+        .IF al == '_'
+            inc rsi
+        .ENDIF
+    
+        movzx rax, byte ptr [rsi]
+        .WHILE al != '@' && al != '>' && al != 0
+    ;        .IF al == 0h
+    ;            mov rdi, lpszAPIFunction
+    ;            mov byte ptr [rdi], 0h ; null out string
+    ;            mov rax, FALSE
+    ;            ret
+    ;        .ENDIF
+            mov byte ptr [rdi], al
+            inc rdi
+            inc rsi
+            movzx rax, byte ptr [rsi]
+        .ENDW
+        mov byte ptr [rdi], 0h ; null out string
+        mov rax, TRUE
+    .ELSE
+        mov rax, FALSE
+    .ENDIF        
     ret
 
 Strip_x64dbg_calls endp
@@ -1104,57 +1354,112 @@ Strip_x64dbg_calls endp
 ; Strips out the segment text before brackets ss:[], ds:[] etc and any 0x
 ;-------------------------------------------------------------------------------------
 Strip_x64dbg_segments PROC FRAME USES RBX RDI RSI lpszDisasmText:QWORD, lpszFormattedDisamText:QWORD
-
-    mov rsi, lpszDisasmText
-    mov rdi, lpszFormattedDisamText
     
-    movzx rax, byte ptr [rsi]
-    .WHILE al != ':'
-        .IF al == 0h
-            mov byte ptr [rdi], 0h ; add null to string
-            mov rax, FALSE
-            ret
-;        .ELSEIF al == "x"
-;            dec edi
-;            dec edi
-;        .ELSE
-;            mov byte ptr [edi], al
-        .ENDIF
-        mov byte ptr [rdi], al
-        inc rdi
-        inc rsi
+    .IF lpszDisasmText != 0
+        mov rsi, lpszDisasmText
+        mov rdi, lpszFormattedDisamText
+        
         movzx rax, byte ptr [rsi]
-    .ENDW
-
-    inc rsi ; jump over the :, then skip back before segment text
-    dec rdi
-    dec rdi
-
-    movzx rax, byte ptr [rsi]
-    .WHILE al != 0
-        .IF al == "x"
-            movzx rbx, byte ptr [rsi-1]
-            .IF bl == "0"
-                dec rdi
-                dec rdi
+        .WHILE al != ':'
+            .IF al == 0h
+                mov byte ptr [rdi], 0h ; add null to string
+                mov rax, FALSE
+                ret
+    ;        .ELSEIF al == "x"
+    ;            dec edi
+    ;            dec edi
+    ;        .ELSE
+    ;            mov byte ptr [edi], al
+            .ENDIF
+            mov byte ptr [rdi], al
+            inc rdi
+            inc rsi
+            movzx rax, byte ptr [rsi]
+        .ENDW
+    
+        inc rsi ; jump over the :, then skip back before segment text
+        dec rdi
+        dec rdi
+    
+        movzx rax, byte ptr [rsi]
+        .WHILE al != 0
+            .IF g_FormatType == 1
+                .IF al == "x"
+                    movzx rbx, byte ptr [rsi-1]
+                    .IF bl == "0"
+                        dec rdi
+                        dec rdi
+                    .ELSE
+                        mov byte ptr [rdi], al
+                    .ENDIF
+                .ELSE
+                    mov byte ptr [rdi], al
+                .ENDIF
             .ELSE
                 mov byte ptr [rdi], al
             .ENDIF
-        .ELSE
-            mov byte ptr [rdi], al
-        .ENDIF
-;        mov byte ptr [edi], al
-        inc rdi
-        inc rsi
-        movzx rax, byte ptr [rsi]
-    .ENDW
-    mov byte ptr [rdi], 0h ; add null to string
-
-    mov rax, TRUE
-
+    ;        mov byte ptr [edi], al
+            inc rdi
+            inc rsi
+            movzx rax, byte ptr [rsi]
+        .ENDW
+        mov byte ptr [rdi], 0h ; add null to string
+    
+        mov rax, TRUE
+    .ELSE
+        mov rax, FALSE
+    .ENDIF
     ret
 
 Strip_x64dbg_segments ENDP
+
+
+;=====================================================================================
+; Strips out the angle brackets < >
+;-------------------------------------------------------------------------------------
+Strip_x64dbg_anglebrackets PROC FRAME USES RDI RSI lpszDisasmText:QWORD, lpszFormattedDisamText:QWORD
+    
+    .IF lpszDisasmText != 0
+        mov rsi, lpszDisasmText
+        mov rdi, lpszFormattedDisamText
+        
+        movzx rax, byte ptr [rsi]
+        .WHILE al != 0
+            .IF al == '<' || al == '>'
+            .ELSE
+                mov byte ptr [rdi], al
+                inc rdi
+            .ENDIF
+            inc rsi
+            movzx rax, byte ptr [rsi]
+        .ENDW
+        mov byte ptr [rdi], 0
+        mov rax, TRUE
+    .ELSE
+        mov rax, FALSE
+    .ENDIF
+    
+    ret
+Strip_x64dbg_anglebrackets ENDP
+
+
+;=====================================================================================
+; Strips out the module name plus dot if it exists
+;-------------------------------------------------------------------------------------
+Strip_x64dbg_modulename PROC FRAME lpszDisasmText:QWORD, lpszFormattedDisasmText:QWORD
+    .IF lpszDisasmText != 0
+        Invoke InString, 1, lpszDisasmText, Addr szModuleNameStrip
+        .IF sqword ptr rax > 0
+            Invoke szRep, lpszDisasmText, lpszFormattedDisasmText, Addr szModuleNameStrip, Addr szNull
+        .ELSE
+            Invoke szCopy, lpszDisasmText, lpszFormattedDisasmText
+        .ENDIF
+        mov rax, TRUE
+    .ELSE
+        mov rax, FALSE
+    .ENDIF
+    ret
+Strip_x64dbg_modulename ENDP
 
 
 ;-------------------------------------------------------------------------------------
