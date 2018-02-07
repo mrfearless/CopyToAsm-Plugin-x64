@@ -194,6 +194,9 @@ plugsetup PROC FRAME USES RBX setupStruct:QWORD
     Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTACMTRANGE1, Addr szCTACmntOutsideRange
     Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTACMTJMPDEST1, Addr szCTACmntJmpDest
     Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTACMTCALLDEST1, Addr szCTACmntCallDest
+    Invoke _plugin_menuaddseparator, hMenuOptions
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTALBLUSEADDRESS1, Addr szCTALblsUseAddress
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTALBLUSELABEL1, Addr szCTALblsUseLabel    
     Invoke CTALoadMenuIcon, IMG_MENU_OPTIONS, Addr hIconDataOptions
     Invoke _plugin_menuseticon, hMenuOptions, Addr hIconDataOptions
 
@@ -208,6 +211,9 @@ plugsetup PROC FRAME USES RBX setupStruct:QWORD
     Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTACMTRANGE2, Addr szCTACmntOutsideRange
     Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTACMTJMPDEST2, Addr szCTACmntJmpDest
     Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTACMTCALLDEST2, Addr szCTACmntCallDest
+    Invoke _plugin_menuaddseparator, hMenuOptions
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTALBLUSEADDRESS2, Addr szCTALblsUseAddress
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTALBLUSELABEL2, Addr szCTALblsUseLabel    
     Invoke _plugin_menuseticon, hMenuOptions, Addr hIconDataOptions
 
     Invoke CTALoadMenuIcon, IMG_COPYTOASM_MAIN, Addr hIconData
@@ -278,6 +284,30 @@ plugsetup PROC FRAME USES RBX setupStruct:QWORD
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTCALLDEST2, Addr hImgNoCheck
         ;Invoke GuiAddLogMessage, Addr szLogFormatTypeMasm
     .ENDIF    
+
+    Invoke IniGetLblUseAddress
+    mov g_LblUseAddress, rax
+    .IF rax == 1
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSEADDRESS1, Addr hImgCheck
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSEADDRESS2, Addr hImgCheck
+        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeNormal
+    .ELSE
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSEADDRESS1, Addr hImgNoCheck
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSEADDRESS2, Addr hImgNoCheck
+        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeMasm
+    .ENDIF   
+
+    Invoke IniGetLblUseLabel
+    mov g_LblUseLabel, rax
+    .IF rax == 1
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSELABEL1, Addr hImgCheck
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSELABEL2, Addr hImgCheck
+        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeNormal
+    .ELSE
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSELABEL1, Addr hImgNoCheck
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSELABEL2, Addr hImgNoCheck
+        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeMasm
+    .ENDIF      
 
     Invoke GuiAddLogMessage, Addr szCopyToAsmInfo
     Invoke GuiGetWindowHandle
@@ -397,6 +427,36 @@ CBMENUENTRY PROC FRAME USES RBX cbType:QWORD, cbInfo:QWORD
             Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTCALLDEST1, Addr hImgCheck
             Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTCALLDEST2, Addr hImgCheck
         .ENDIF        
+
+    .ELSEIF eax == MENU_CTALBLUSEADDRESS1 || eax == MENU_CTALBLUSEADDRESS2
+        mov rax, g_LblUseAddress
+        .IF rax == 1
+            mov g_LblUseAddress, 0
+            Invoke IniSetLblUseAddress, 0
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSEADDRESS1, Addr hImgNoCheck
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSEADDRESS2, Addr hImgNoCheck
+        .ELSE
+            mov g_LblUseAddress, 1
+            Invoke IniSetLblUseAddress, 1
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSEADDRESS1, Addr hImgCheck
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSEADDRESS2, Addr hImgCheck
+        .ENDIF
+        
+    .ELSEIF eax == MENU_CTALBLUSELABEL1 || eax == MENU_CTALBLUSELABEL2
+
+        mov rax, g_LblUseLabel
+        .IF rax == 1
+            mov g_LblUseLabel, 0
+            Invoke IniSetLblUseLabel, 0
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSELABEL1, Addr hImgNoCheck
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSELABEL2, Addr hImgNoCheck
+        .ELSE
+            mov g_LblUseLabel, 1
+            Invoke IniSetLblUseLabel, 1
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSELABEL1, Addr hImgCheck
+            Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSELABEL2, Addr hImgCheck
+        .ENDIF
+
 
     .ENDIF
     
@@ -599,7 +659,7 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
         
         Invoke CTAAddressInJmpTable, qwCurrentAddress
         .IF rax != 0
-            Invoke CTALabelFromJmpEntry, rax, Addr szLabelX
+            Invoke CTALabelFromJmpEntry, rax, qwCurrentAddress, Addr szLabelX
             .IF qwOutput == 0 ; output to clipboard
                 Invoke szCatStr, ptrClipboardData, Addr szCRLF
                 Invoke szCatStr, ptrClipboardData, Addr szLabelX
@@ -997,7 +1057,7 @@ CTAOutputLabelsOutsideRangeBefore PROC FRAME USES RBX qwStartAddress:QWORD, pDat
             .ENDIF
             mov rax, nJmpEntry
             inc rax ; for 1 based index            
-            Invoke CTALabelFromJmpEntry, rax, Addr szLabelX
+            Invoke CTALabelFromJmpEntry, rax, qwAddress, Addr szLabelX
             Invoke szCatStr, pDataBuffer, Addr szCRLF 
             Invoke szCatStr, pDataBuffer, Addr szLabelX
             .IF g_CmntJumpDest == 1
@@ -1046,7 +1106,7 @@ CTARefViewLabelsOutsideRangeBefore PROC FRAME USES RBX qwStartAddress:QWORD, qwC
 
             mov rax, nJmpEntry
             inc rax ; for 1 based index            
-            Invoke CTALabelFromJmpEntry, rax, Addr szLabelX
+            Invoke CTALabelFromJmpEntry, rax, qwAddress, Addr szLabelX
             Invoke szCopy, Addr szLabelX, Addr szFormattedDisasmText
             .IF g_CmntJumpDest == 1
                 Invoke qw2hex, qwAddress, Addr szValueString
@@ -1097,7 +1157,7 @@ CTAOutputLabelsOutsideRangeAfter PROC FRAME USES RBX qwFinishAddress:QWORD, pDat
             .ENDIF
             mov rax, nJmpEntry
             inc rax ; for 1 based index            
-            Invoke CTALabelFromJmpEntry, rax, Addr szLabelX
+            Invoke CTALabelFromJmpEntry, rax, qwAddress, Addr szLabelX
             Invoke szCatStr, pDataBuffer, Addr szCRLF 
             Invoke szCatStr, pDataBuffer, Addr szLabelX
             .IF g_CmntJumpDest == 1
@@ -1146,7 +1206,7 @@ CTARefViewLabelsOutsideRangeAfter PROC FRAME USES RBX qwFinishAddress:QWORD, qwC
 
             mov rax, nJmpEntry
             inc rax ; for 1 based index            
-            Invoke CTALabelFromJmpEntry, rax, Addr szLabelX
+            Invoke CTALabelFromJmpEntry, rax, qwAddress, Addr szLabelX
             Invoke szCopy, Addr szLabelX, Addr szFormattedDisasmText
             .IF g_CmntJumpDest == 1
                 Invoke qw2hex, qwAddress, Addr szValueString
@@ -1171,12 +1231,23 @@ CTARefViewLabelsOutsideRangeAfter ENDP
 ;-------------------------------------------------------------------------------------
 ; Creates string "LABEL_X:"+(CRLF) from dwJmpEntry number X
 ;-------------------------------------------------------------------------------------
-CTALabelFromJmpEntry PROC FRAME qwJmpEntry:QWORD, lpszLabel:QWORD
-    LOCAL szValue[16]:BYTE
+CTALabelFromJmpEntry PROC FRAME qwJmpEntry:QWORD, qwAddress:QWORD, lpszLabel:QWORD
+    LOCAL szValue[32]:BYTE
     .IF lpszLabel != NULL
-        Invoke utoa_ex, qwJmpEntry, Addr szValue, 10, FALSE, TRUE
+        .IF g_LblUseAddress == 1
+            Invoke qw2hex, qwAddress, Addr szValue
+        .ELSE    
+            Invoke utoa_ex, qwJmpEntry, Addr szValue, 10, FALSE, TRUE
+        .ENDIF
         ;Invoke szCopy, Addr szCRLF, lpszLabel
-        Invoke szCopy, Addr szLabel, lpszLabel
+        .IF g_LblUseLabel == 1
+            Invoke szCopy, Addr szLabel, lpszLabel
+        .ELSE
+            Invoke szCopy, Addr szUnderscore, lpszLabel
+        .ENDIF
+        .IF g_LblUseAddress == 1
+            Invoke szCatStr, lpszLabel, Addr szHex
+        .ENDIF        
         ;Invoke szCatStr, lpszLabel, Addr szLabel
         Invoke szCatStr, lpszLabel, Addr szValue
         Invoke szCatStr, lpszLabel, Addr szColon
@@ -1190,11 +1261,16 @@ CTALabelFromJmpEntry ENDP
 ; Creates string for jump xxx instruction "jxxx LABEL_X" from dwJmpEntry number x
 ;-------------------------------------------------------------------------------------
 CTAJmpLabelFromJmpEntry PROC FRAME USES RDI RSI qwJmpEntry:QWORD, qwAddress:QWORD, bOutsideRange:QWORD, lpszJxxx:QWORD, lpszJumpLabel:QWORD
-    LOCAL szValue[16]:BYTE
+    LOCAL szValue[32]:BYTE
     LOCAL szJmp[16]:BYTE
     
     .IF lpszJxxx != NULL && lpszJumpLabel != NULL
-        Invoke utoa_ex, qwJmpEntry, Addr szValue, 10, FALSE, TRUE
+        
+        .IF g_LblUseAddress == 1
+            Invoke qw2hex, qwAddress, Addr szValue
+        .ELSE        
+            Invoke utoa_ex, qwJmpEntry, Addr szValue, 10, FALSE, TRUE
+        .ENDIF
         
         lea rdi, szJmp
         mov rsi, lpszJxxx
@@ -1215,7 +1291,14 @@ CTAJmpLabelFromJmpEntry PROC FRAME USES RDI RSI qwJmpEntry:QWORD, qwAddress:QWOR
         
         Invoke szCopy, Addr szJmp, lpszJumpLabel
         ;Invoke szCatStr, lpszJumpLabel, Addr szJmp
-        Invoke szCatStr, lpszJumpLabel, Addr szLabel
+        .IF g_LblUseLabel == 1
+            Invoke szCatStr, lpszJumpLabel, Addr szLabel
+        .ELSE
+            Invoke szCatStr, lpszJumpLabel, Addr szUnderscore
+        .ENDIF
+        .IF g_LblUseAddress == 1
+            Invoke szCatStr, lpszJumpLabel, Addr szHex
+        .ENDIF
         Invoke szCatStr, lpszJumpLabel, Addr szValue
         .IF g_CmntJumpDest == 1
             Invoke szCatStr, lpszJumpLabel, Addr szCmnt

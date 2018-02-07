@@ -26,7 +26,7 @@ DoCopyToAsm                         PROTO :QWORD
 CTABuildJmpTable                    PROTO :QWORD, :QWORD
 CTAClearJmpTable                    PROTO
 CTAAddressInJmpTable                PROTO :QWORD
-CTALabelFromJmpEntry                PROTO :QWORD, :QWORD
+CTALabelFromJmpEntry                PROTO :QWORD, :QWORD, :QWORD
 CTAJmpLabelFromJmpEntry             PROTO :QWORD, :QWORD, :QWORD, :QWORD, :QWORD
 CTAOutputLabelsOutsideRangeBefore   PROTO :QWORD, :QWORD
 CTAOutputLabelsOutsideRangeAfter    PROTO :QWORD, :QWORD
@@ -74,6 +74,11 @@ MENU_CTACMTCALLDEST1    EQU 11
 MENU_CTACMTCALLDEST2    EQU 12
 MENU_CTARANGELABELS1    EQU 13
 MENU_CTARANGELABELS2    EQU 14
+MENU_CTALBLUSEADDRESS1  EQU 15
+MENU_CTALBLUSEADDRESS2  EQU 16
+MENU_CTALBLUSELABEL1    EQU 17
+MENU_CTALBLUSELABEL2    EQU 18
+
 
 .DATA
 align 01
@@ -88,7 +93,8 @@ szCTAOutsideRangeLabels DB "Outside range jump labels (before and after)",0
 szCTACmntOutsideRange   DB "Comment jumps/calls when outside range",0
 szCTACmntJmpDest        DB "Comment jumps with destination address",0
 szCTACmntCallDest       DB "Comment internal calls with destination address",0
-
+szCTALblsUseAddress     DB "Label name uses destination address",0
+szCTALblsUseLabel       DB "Label name prepended with 'LABEL_'",0
 
 szCopyToAsmInfo         DB 13,10         
                         DB "CopyToAsm x64 x64dbg plugin by fearless 2018 - www.LetTheLight.in",13,10
@@ -145,11 +151,13 @@ szDestJmp               DB "=> ",0
 ;---------------------------
 szIni                   DB "ini",0
 CopyToAsmIni            DB MAX_PATH DUP (0)
-szFormatType            DB "FormatType",0
-szOutsideRangeLabels    DB "OutsideRangeLabels",0
-szCmntOutsideRange      DB "CmntOutsideRange",0      
-szCmntJumpDest          DB "CmntJumpDest",0
-szCmntCallDest          DB "CmntCallDest",0
+szIniFormatType         DB "FormatType",0
+szIniOutsideRangeLabels DB "OutsideRangeLabels",0
+szIniCmntOutsideRange   DB "CmntOutsideRange",0      
+szIniCmntJumpDest       DB "CmntJumpDest",0
+szIniCmntCallDest       DB "CmntCallDest",0
+szIniLblUseAddress      DB "LblUseAddress"
+szIniLblUseLabel        DB "LblUseLabel"
 
 
 ;---------------------------
@@ -187,6 +195,7 @@ szRightBracket          DB ")",0
 szPlus                  DB "+",0
 szMinus                 DB "-",0
 szDot                   DB ".",0
+szUnderscore            DB "_",0
 szOffsetLeftBracket     DB " (",0
 
 
@@ -198,7 +207,8 @@ g_OutsideRangeLabels    DQ 1
 g_CmntOutsideRange      DQ 1
 g_CmntJumpDest          DQ 1
 g_CmntCallDest          DQ 1
-
+g_LblUseAddress         DQ 1
+g_LblUseLabel           DQ 1
 
 ;---------------------------
 ; Jump Table

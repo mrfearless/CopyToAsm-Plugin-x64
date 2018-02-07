@@ -2,7 +2,7 @@
 ;
 ; CopyToAsm-readme.txt
 ;
-; v1.0.0.1 - Last updated 03/02/2018
+; v1.0.0.2 - Last updated 07/02/2018
 ;
 ;-------------------------------------------------------------------------------------
 
@@ -33,7 +33,7 @@ Features
 - Adjusts jump instructions to point to added labels.
 - Indicates if jump destinations are outside selection range.
 - Code comments to indicate start/end and outside range.
-
+- Options to adjust comments and label outputs.
 
 
 Notes
@@ -41,3 +41,4 @@ Notes
 
 - 29/01/2018 first release
 - 03/02/2018 v1.0.0.1
+- 07/02/2018 v1.0.0.2
