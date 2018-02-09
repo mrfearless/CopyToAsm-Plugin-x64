@@ -570,6 +570,14 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
         ret
     .ENDIF
 
+    ;----------------------------------
+    ; 2nd pass build call destination array
+    ;----------------------------------
+    Invoke CTABuildCallTable, qwStartAddress, qwFinishAddress
+    .IF rax == FALSE
+        ret
+    .ENDIF
+
     .IF qwOutput == 0 ; clipboard
         ;----------------------------------
         ; Alloc space for clipboard data
@@ -620,6 +628,7 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
             ; Labels Before
             ;----------------------------------
             Invoke CTAOutputLabelsOutsideRangeBefore, qwStartAddress, ptrClipboardData
+            Invoke CTAOutputCallLabelsOutsideRangeBefore, qwStartAddress, ptrClipboardData
         .ENDIF
     
         ;----------------------------------
@@ -645,6 +654,8 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
             ;----------------------------------        
             Invoke CTARefViewLabelsOutsideRangeBefore, qwStartAddress, qwCTALIndex
             mov qwCTALIndex, rax
+            Invoke CTARefViewCallLabelsOutsideRangeBefore, qwStartAddress, qwCTALIndex
+            mov qwCTALIndex, rax            
         .ENDIF
 
     .ENDIF
@@ -657,6 +668,7 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
     mov qwCurrentAddress, rax
     .WHILE rax <= qwFinishAddress
         
+        ; Check instruction is in our jmp table as a destination for a jump, if so insert a label
         Invoke CTAAddressInJmpTable, qwCurrentAddress
         .IF rax != 0
             Invoke CTALabelFromJmpEntry, rax, qwCurrentAddress, Addr szLabelX
@@ -669,6 +681,21 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
                 inc qwCTALIndex
             .ENDIF
         .ENDIF
+        
+        ; Check instruction is in our call table as a destination for a call, if so insert a label
+        Invoke CTAAddressInCallTable, qwCurrentAddress
+        .IF rax != 0
+            Invoke CTALabelFromCallEntry, rax, Addr szLabelX
+            .IF qwOutput == 0 ; output to clipboard
+                Invoke szCatStr, ptrClipboardData, Addr szCRLF
+                Invoke szCatStr, ptrClipboardData, Addr szLabelX
+                Invoke szCatStr, ptrClipboardData, Addr szCRLF
+            .ELSE ; output to reference view
+                Invoke CTA_AddRowToRefView, qwCTALIndex, Addr szLabelX
+                inc qwCTALIndex
+            .ENDIF
+        .ENDIF        
+        
         
         Invoke RtlZeroMemory, Addr bii, SIZEOF BASIC_INSTRUCTION_INFO
         Invoke DbgDisasmFastAt, qwCurrentAddress, Addr bii
@@ -800,6 +827,7 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
             ; Labels After
             ;----------------------------------
             Invoke CTAOutputLabelsOutsideRangeAfter, qwFinishAddress, ptrClipboardData
+            Invoke CTAOutputCallLabelsOutsideRangeAfter, qwFinishAddress, ptrClipboardData
         .ENDIF
         
     .ELSE
@@ -810,12 +838,15 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
             ;----------------------------------    
             Invoke CTARefViewLabelsOutsideRangeAfter, qwFinishAddress, qwCTALIndex
             mov qwCTALIndex, rax
+            Invoke CTARefViewCallLabelsOutsideRangeAfter, qwFinishAddress, qwCTALIndex
+            mov qwCTALIndex, rax            
         .ENDIF
     
     .ENDIF
 
 
     Invoke CTAClearJmpTable ; free jmp table
+    Invoke CTAClearCallTable ; free call table
 
 
     .IF qwOutput == 0 ; output to clipboard
@@ -924,22 +955,24 @@ CTABuildJmpTable PROC FRAME USES RBX qwStartAddress:QWORD, qwFinishAddress:QWORD
             mov JmpDestination, rax
            ; PrintDec JmpDestination
             
-            
-            mov rbx, ptrJmpEntry
-            mov rax, JmpDestination
-            mov [rbx].JMPTABLE_ENTRY.qwAddress, rax
-            
-            inc nJmpEntry
-            inc JMPTABLE_ENTRIES_TOTAL
-            
-            mov rax, JMPTABLE_ENTRIES_TOTAL
-            .IF rax >= JMPTABLE_ENTRIES_MAX
-                Invoke GuiAddStatusBarMessage, Addr szErrorMaxEntries
-                mov rax, FALSE
-                ret
+            Invoke CTAAddressInJmpTable, JmpDestination
+            .IF eax == 0  
+                mov rbx, ptrJmpEntry
+                mov rax, JmpDestination
+                mov [rbx].JMPTABLE_ENTRY.qwAddress, rax
+                
+                inc nJmpEntry
+                inc JMPTABLE_ENTRIES_TOTAL
+                
+                mov rax, JMPTABLE_ENTRIES_TOTAL
+                .IF rax >= JMPTABLE_ENTRIES_MAX
+                    Invoke GuiAddStatusBarMessage, Addr szErrorMaxEntries
+                    mov rax, FALSE
+                    ret
+                .ENDIF
+                
+                add ptrJmpEntry, SIZEOF JMPTABLE_ENTRY
             .ENDIF
-            
-            add ptrJmpEntry, SIZEOF JMPTABLE_ENTRY
         .ENDIF
         
         Invoke GuiGetDisassembly, qwCurrentAddress, Addr szDisasmText
@@ -973,6 +1006,120 @@ CTABuildJmpTable ENDP
 
 
 ;-------------------------------------------------------------------------------------
+; 2nd pass of selection, build an array of call destinations
+; estimates size required based on selection size (bytes) / 4 (call xxxx (5) 4 bytes long)
+; = no of entries (max safe estimate) * size jmptable_entry struct
+; also roughly calcs the size of clipboard data required
+;-------------------------------------------------------------------------------------
+CTABuildCallTable PROC FRAME USES RBX qwStartAddress:QWORD, qwFinishAddress:QWORD
+    LOCAL bii:BASIC_INSTRUCTION_INFO ; basic 
+    LOCAL cbii:BASIC_INSTRUCTION_INFO ; call destination
+    LOCAL qwCallTableSize:QWORD
+    LOCAL qwCurrentAddress:QWORD
+    LOCAL CallDestination:QWORD
+    LOCAL nCallEntry:QWORD
+    LOCAL ptrCallEntry:QWORD
+
+    mov rax, qwFinishAddress
+    mov rbx, qwStartAddress
+    sub rax, rbx
+    .IF sqword ptr rax < 0
+        neg rax
+    .ENDIF
+    shr rax, 2 ; div by 4
+    mov CALLTABLE_ENTRIES_MAX, rax
+    mov rbx, SIZEOF CALLTABLE_ENTRY
+    mul rbx
+    mov qwCallTableSize, rax
+    
+    Invoke GlobalAlloc, GMEM_FIXED + GMEM_ZEROINIT, qwCallTableSize
+    .IF rax == NULL
+        Invoke GuiAddStatusBarMessage, Addr szErrorAllocMemCallTable
+        mov rax, FALSE
+        ret
+    .ENDIF
+    mov CALLTABLE, rax
+    mov ptrCallEntry, rax
+    mov nCallEntry, 0
+
+    mov rax, qwStartAddress
+    mov qwCurrentAddress, rax
+
+
+    .WHILE rax <= qwFinishAddress
+        Invoke DbgDisasmFastAt, qwCurrentAddress, Addr bii
+        movzx rax, byte ptr bii.call_
+        movzx rbx, byte ptr bii.branch
+        
+        .IF rax == 1 && rbx == 1 ; we have call statement
+
+            mov rax, bii.address
+            mov CallDestination, rax
+            Invoke DbgDisasmFastAt, CallDestination, Addr cbii
+            
+            ;movzx rax, byte ptr cbii.branch
+            mov rax, bii.address
+            .IF rax == 0 ;rax == 1 ; external function call
+            .ELSE ; internal function call        
+                
+                Invoke CTAAddressInCallTable, CallDestination
+                .IF rax == 0
+                
+                    mov rbx, ptrCallEntry
+                    mov rax, CallDestination
+                    mov [rbx].CALLTABLE_ENTRY.qwAddress, rax
+                    mov rax, qwCurrentAddress
+                    mov [rbx].CALLTABLE_ENTRY.qwCallAddress, rax
+                    
+                    inc nCallEntry
+                    inc CALLTABLE_ENTRIES_TOTAL
+                    
+                    mov rax, CALLTABLE_ENTRIES_TOTAL
+                    .IF rax >= CALLTABLE_ENTRIES_MAX
+                        Invoke GuiAddStatusBarMessage, Addr szErrorMaxEntries
+                        mov rax, FALSE
+                        ret
+                    .ENDIF
+                    
+                    add ptrCallEntry, SIZEOF CALLTABLE_ENTRY
+                    
+                .ENDIF
+            .ENDIF
+        .ENDIF
+        
+        Invoke GuiGetDisassembly, qwCurrentAddress, Addr szDisasmText
+        Invoke szLen, Addr szDisasmText
+        add rax, 2 ; for CRLF pairs for each line
+        add CLIPDATASIZE, rax
+
+        mov eax, bii.size_ 
+        add qwCurrentAddress, rax
+        mov rax, qwCurrentAddress
+    .ENDW    
+    
+    mov rax, CALLTABLE_ENTRIES_TOTAL
+    mov rbx, 3 ; for extra label entries at start/finish for outside range labels
+    mul rbx
+    mov rbx, 64d
+    mul rbx
+    add CLIPDATASIZE, rax
+    
+    
+    ;PrintDec dwCallTableSize
+    ;PrintDec CALLTABLE_ENTRIES_MAX
+    ;PrintDec CALLTABLE_ENTRIES_TOTAL
+    ;mov eax, CALLTABLE_ENTRIES_TOTAL
+    ;mov ebx, SIZEOF CALLTABLE_ENTRY
+    ;mul ebx    
+    ;DbgDump CALLTABLE, eax
+    
+    mov rax, TRUE
+    ret
+
+CTABuildCallTable ENDP
+
+
+;-------------------------------------------------------------------------------------
 ; Frees memory of the jmptable and reset vars
 ;-------------------------------------------------------------------------------------
 CTAClearJmpTable PROC FRAME
@@ -986,6 +1133,23 @@ CTAClearJmpTable PROC FRAME
     ret
 
 CTAClearJmpTable ENDP
+
+
+;-------------------------------------------------------------------------------------
+; Frees memory of the calltable and reset vars
+;-------------------------------------------------------------------------------------
+CTAClearCallTable PROC FRAME
+    
+    mov CALLTABLE_ENTRIES_MAX, 0
+    mov CALLTABLE_ENTRIES_TOTAL, 0
+    mov rax, CALLTABLE
+    .IF rax != 0
+        Invoke GlobalFree, rax
+    .ENDIF
+    ret
+
+CTAClearCallTable ENDP
+
 
 
 ;-------------------------------------------------------------------------------------
@@ -1024,6 +1188,40 @@ CTAAddressInJmpTable PROC FRAME USES RBX qwAddress:QWORD
     ret
 CTAAddressInJmpTable ENDP
 
+
+;-------------------------------------------------------------------------------------
+; returns 0 if address is not in CALLTABLE, otherwise returns an 1-based index in eax
+; each address can be checked to see if it a destination for a call instruction
+; if it is then a label can be created an inserted before the instruction
+;-------------------------------------------------------------------------------------
+CTAAddressInCallTable PROC FRAME USES RBX qwAddress:QWORD
+    LOCAL nCallEntry:QWORD
+    LOCAL ptrCallEntry:QWORD
+    
+    .IF CALLTABLE == 0 || CALLTABLE_ENTRIES_TOTAL == 0
+        mov rax, 0
+        ret
+    .ENDIF
+    
+    mov rax, CALLTABLE
+    mov ptrCallEntry, rax
+    mov nCallEntry, 0
+    mov rax, 0
+    .WHILE rax < CALLTABLE_ENTRIES_TOTAL
+        mov rbx, ptrCallEntry
+        mov rax, [rbx].CALLTABLE_ENTRY.qwAddress
+        .IF rax == qwAddress
+            mov rax, nCallEntry
+            inc rax ; for 1 based index
+            ret
+        .ENDIF
+        add ptrCallEntry, SIZEOF CALLTABLE_ENTRY
+        inc nCallEntry
+        mov rax, nCallEntry
+    .ENDW
+    mov rax, 0
+    ret
+CTAAddressInCallTable ENDP
 
 
 ;-------------------------------------------------------------------------------------
@@ -1078,6 +1276,56 @@ CTAOutputLabelsOutsideRangeBefore ENDP
 
 
 ;-------------------------------------------------------------------------------------
+; Called before main loop output to clipboard call labels outside range (before) selection
+;-------------------------------------------------------------------------------------
+CTAOutputCallLabelsOutsideRangeBefore PROC FRAME USES RBX qwStartAddress:QWORD, pDataBuffer:QWORD
+    LOCAL nCallEntry:QWORD
+    LOCAL ptrCallEntry:QWORD
+    LOCAL bOutputComment:QWORD
+    LOCAL qwAddress:QWORD
+    
+    .IF CALLTABLE == 0 || CALLTABLE_ENTRIES_TOTAL == 0
+        mov rax, 0
+        ret
+    .ENDIF    
+    
+    mov bOutputComment, FALSE
+    
+    mov rax, CALLTABLE
+    mov ptrCallEntry, rax
+    mov nCallEntry, 0
+    mov rax, 0
+    .WHILE rax < CALLTABLE_ENTRIES_TOTAL
+        mov rbx, ptrCallEntry
+        mov rax, [rbx].CALLTABLE_ENTRY.qwAddress
+        mov qwAddress, rax
+        .IF rax < qwStartAddress
+            .IF bOutputComment == FALSE
+                Invoke szCatStr, pDataBuffer, Addr szCommentCallsBeforeRange
+                mov bOutputComment, TRUE 
+            .ENDIF
+
+            Invoke CTALabelFromCallEntry, nCallEntry, Addr szLabelX
+            Invoke szCatStr, pDataBuffer, Addr szCRLF 
+            Invoke szCatStr, pDataBuffer, Addr szLabelX
+            .IF g_CmntJumpDest == 1
+                Invoke qw2hex, qwAddress, Addr szValueString
+                Invoke szCatStr, pDataBuffer, Addr szCmntStart
+                Invoke szCatStr, pDataBuffer, Addr szValueString
+            .ENDIF
+            Invoke szCatStr, pDataBuffer, Addr szCRLF           
+
+        .ENDIF
+        add ptrCallEntry, SIZEOF CALLTABLE_ENTRY
+        inc nCallEntry
+        mov rax, nCallEntry
+    .ENDW
+    mov rax, 0
+    ret
+CTAOutputCallLabelsOutsideRangeBefore ENDP
+
+
+;-------------------------------------------------------------------------------------
 ; Called before main loop output to refview labels outside range (before) selection
 ;-------------------------------------------------------------------------------------
 CTARefViewLabelsOutsideRangeBefore PROC FRAME USES RBX qwStartAddress:QWORD, qwCount:QWORD
@@ -1087,7 +1335,7 @@ CTARefViewLabelsOutsideRangeBefore PROC FRAME USES RBX qwStartAddress:QWORD, qwC
     LOCAL qwCTALIndex:QWORD
     
     .IF JMPTABLE == 0 || JMPTABLE_ENTRIES_TOTAL == 0
-        mov rax, 0
+        mov rax, qwCount
         ret
     .ENDIF
     
@@ -1124,6 +1372,55 @@ CTARefViewLabelsOutsideRangeBefore PROC FRAME USES RBX qwStartAddress:QWORD, qwC
     mov rax, qwCTALIndex
     ret
 CTARefViewLabelsOutsideRangeBefore ENDP
+
+
+;-------------------------------------------------------------------------------------
+; Called before main loop output to refview call labels outside range (before) selection
+;-------------------------------------------------------------------------------------
+CTARefViewCallLabelsOutsideRangeBefore PROC FRAME USES RBX qwStartAddress:QWORD, qwCount:QWORD
+    LOCAL nCallEntry:QWORD
+    LOCAL ptrCallEntry:QWORD
+    LOCAL qwAddress:QWORD
+    LOCAL qwCTALIndex:QWORD
+    
+    .IF CALLTABLE == 0 || CALLTABLE_ENTRIES_TOTAL == 0
+        mov rax, qwCount
+        ret
+    .ENDIF    
+
+    mov rax, qwCount
+    mov qwCTALIndex, rax
+    
+    mov rax, CALLTABLE
+    mov ptrCallEntry, rax
+    mov nCallEntry, 0
+    mov rax, 0
+    .WHILE rax < CALLTABLE_ENTRIES_TOTAL
+        mov rbx, ptrCallEntry
+        mov rax, [rbx].CALLTABLE_ENTRY.qwAddress
+        mov qwAddress, rax
+        
+        .IF rax < qwStartAddress
+        
+            Invoke CTALabelFromCallEntry, nCallEntry, Addr szLabelX
+            Invoke szCopy, Addr szLabelX, Addr szFormattedDisasmText
+            .IF g_CmntJumpDest == 1
+                Invoke qw2hex, qwAddress, Addr szValueString
+                Invoke szCatStr, Addr szFormattedDisasmText, Addr szCmntStart
+                Invoke szCatStr, Addr szFormattedDisasmText, Addr szValueString
+            .ENDIF
+            Invoke CTA_AddRowToRefView, qwCTALIndex, Addr szFormattedDisasmText
+            inc qwCTALIndex       
+
+        .ENDIF
+        add ptrCallEntry, SIZEOF CALLTABLE_ENTRY
+        inc nCallEntry
+        mov rax, nCallEntry
+    .ENDW
+    mov rax, qwCTALIndex
+    ret
+CTARefViewCallLabelsOutsideRangeBefore ENDP
+
 
 
 ;-------------------------------------------------------------------------------------
@@ -1178,6 +1475,56 @@ CTAOutputLabelsOutsideRangeAfter ENDP
 
 
 ;-------------------------------------------------------------------------------------
+; Called before main loop output to clipboard call labels outside range (after) selection
+;-------------------------------------------------------------------------------------
+CTAOutputCallLabelsOutsideRangeAfter PROC FRAME USES RBX qwFinishAddress:QWORD, pDataBuffer:QWORD
+    LOCAL nCallEntry:QWORD
+    LOCAL ptrCallEntry:QWORD
+    LOCAL bOutputComment:QWORD
+    LOCAL qwAddress:QWORD
+    
+    .IF CALLTABLE == 0 || CALLTABLE_ENTRIES_TOTAL == 0
+        mov rax, 0
+        ret
+    .ENDIF    
+    
+    mov bOutputComment, FALSE
+    
+    mov rax, CALLTABLE
+    mov ptrCallEntry, rax
+    mov nCallEntry, 0
+    mov rax, 0
+    .WHILE rax < CALLTABLE_ENTRIES_TOTAL
+        mov rbx, ptrCallEntry
+        mov rax, [rbx].CALLTABLE_ENTRY.qwAddress
+        mov qwAddress, rax
+        .IF rax > qwFinishAddress
+            .IF bOutputComment == FALSE
+                Invoke szCatStr, pDataBuffer, Addr szCommentCallsAfterRange
+                mov bOutputComment, TRUE 
+            .ENDIF
+            Invoke CTALabelFromCallEntry, nCallEntry, Addr szLabelX
+            Invoke szCatStr, pDataBuffer, Addr szCRLF 
+            Invoke szCatStr, pDataBuffer, Addr szLabelX
+            .IF g_CmntJumpDest == 1
+                Invoke qw2hex, qwAddress, Addr szValueString
+                Invoke szCatStr, pDataBuffer, Addr szCmntStart
+                Invoke szCatStr, pDataBuffer, Addr szValueString
+            .ENDIF
+            Invoke szCatStr, pDataBuffer, Addr szCRLF           
+
+        .ENDIF
+        add ptrCallEntry, SIZEOF CALLTABLE_ENTRY
+        inc nCallEntry
+        mov rax, nCallEntry
+    .ENDW
+    mov rax, 0
+    ret
+CTAOutputCallLabelsOutsideRangeAfter ENDP
+
+
+
+;-------------------------------------------------------------------------------------
 ; Called before main loop output to refview labels outside range (after) selection
 ;-------------------------------------------------------------------------------------
 CTARefViewLabelsOutsideRangeAfter PROC FRAME USES RBX qwFinishAddress:QWORD, qwCount:QWORD
@@ -1187,7 +1534,7 @@ CTARefViewLabelsOutsideRangeAfter PROC FRAME USES RBX qwFinishAddress:QWORD, qwC
     LOCAL qwCTALIndex:QWORD
     
     .IF JMPTABLE == 0 || JMPTABLE_ENTRIES_TOTAL == 0
-        mov rax, 0
+        mov rax, qwCount
         ret
     .ENDIF
     
@@ -1226,6 +1573,53 @@ CTARefViewLabelsOutsideRangeAfter PROC FRAME USES RBX qwFinishAddress:QWORD, qwC
 CTARefViewLabelsOutsideRangeAfter ENDP
 
 
+;-------------------------------------------------------------------------------------
+; Called before main loop output to refview call labels outside range (after) selection
+;-------------------------------------------------------------------------------------
+CTARefViewCallLabelsOutsideRangeAfter PROC FRAME USES RBX qwFinishAddress:QWORD, qwCount:QWORD
+    LOCAL nCallEntry:QWORD
+    LOCAL ptrCallEntry:QWORD
+    LOCAL qwAddress:QWORD
+    LOCAL qwCTALIndex:QWORD
+    
+    .IF CALLTABLE == 0 || CALLTABLE_ENTRIES_TOTAL == 0
+        mov rax, qwCount
+        ret
+    .ENDIF    
+
+    mov rax, qwCount
+    mov qwCTALIndex, rax
+
+    mov rax, CALLTABLE
+    mov ptrCallEntry, rax
+    mov nCallEntry, 0
+    mov rax, 0
+    .WHILE rax < CALLTABLE_ENTRIES_TOTAL
+        mov rbx, ptrCallEntry
+        mov rax, [rbx].CALLTABLE_ENTRY.qwAddress
+        mov qwAddress, rax
+        
+        .IF rax > qwFinishAddress
+        
+            Invoke CTALabelFromCallEntry, nCallEntry, Addr szLabelX
+            Invoke szCopy, Addr szLabelX, Addr szFormattedDisasmText
+            .IF g_CmntJumpDest == 1
+                Invoke qw2hex, qwAddress, Addr szValueString
+                Invoke szCatStr, Addr szFormattedDisasmText, Addr szCmntStart
+                Invoke szCatStr, Addr szFormattedDisasmText, Addr szValueString
+            .ENDIF
+            Invoke CTA_AddRowToRefView, qwCTALIndex, Addr szFormattedDisasmText
+            inc qwCTALIndex       
+
+        .ENDIF
+        add ptrCallEntry, SIZEOF CALLTABLE_ENTRY
+        inc nCallEntry
+        mov rax, nCallEntry
+    .ENDW
+    mov rax, qwCTALIndex
+    ret
+CTARefViewCallLabelsOutsideRangeAfter ENDP
+
 
 
 ;-------------------------------------------------------------------------------------
@@ -1255,6 +1649,37 @@ CTALabelFromJmpEntry PROC FRAME qwJmpEntry:QWORD, qwAddress:QWORD, lpszLabel:QWO
     .ENDIF
     ret
 CTALabelFromJmpEntry ENDP
+
+
+;-------------------------------------------------------------------------------------
+; Creates string "LABEL_X:"+(CRLF) from dwCallEntry number X
+;-------------------------------------------------------------------------------------
+CTALabelFromCallEntry PROC FRAME USES RBX qwCallEntry:QWORD, lpszLabel:QWORD
+    LOCAL ptrCallEntry:QWORD
+    LOCAL qwCallAddress:QWORD
+    
+    mov rbx, SIZEOF CALLTABLE_ENTRY
+    mov rax, qwCallEntry
+    .IF rax > CALLTABLE_ENTRIES_TOTAL
+        Invoke szCopy, Addr szErrCallLabel, lpszLabel
+        ret
+    .ENDIF
+    mul rbx
+    mov rbx, CALLTABLE
+    add rax, rbx
+    mov ptrCallEntry, rax
+    mov rbx, rax
+    mov rax, [rbx].CALLTABLE_ENTRY.qwCallAddress
+    mov qwCallAddress, rax
+    
+    Invoke GuiGetDisassembly, qwCallAddress, Addr szCallLabelText
+    
+    Invoke Strip_x64dbg_calls, Addr szCallLabelText, Addr szCALLFunction
+    Invoke szCatStr, Addr szCALLFunction, Addr szColon
+    Invoke szCopy, Addr szCALLFunction, lpszLabel
+    ret
+
+CTALabelFromCallEntry ENDP
 
 
 ;-------------------------------------------------------------------------------------

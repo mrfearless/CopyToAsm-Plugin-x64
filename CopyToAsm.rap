@@ -64,20 +64,20 @@ Menu=1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0
 [VerInf]
 Nme=VERINF1
 ID=1
-FV=1.0.0.2
-PV=1.0.0.2
+FV=1.0.0.3
+PV=1.0.0.3
 VerOS=0x00000004
 VerFT=0x00000002
 VerLNG=0x00000409
 VerCHS=0x000004B0
-ProductVersion=1.0.0.2
+ProductVersion=1.0.0.3
 ProductName=CopyToAsm
 OriginalFilename=CopyToAsm.dll
 LegalTrademarks=fearless (C) 2018 www.LetTheLight.in
 LegalCopyright=fearless (C) 2018 www.LetTheLight.in
 InternalName=CopyToAsm.dp64
 FileDescription=CopyToAsm x64 plugin for x64dbg
-FileVersion=1.0.0.2
+FileVersion=1.0.0.3
 CompanyName=fearless @ www.LetTheLight.in
 [Group]
 Group=Assembly,Resources,Misc
@@ -96,11 +96,11 @@ Group=Assembly,Resources,Misc
 AutoLoad=3,2,1,5,6
 [Size]
 5=0,0,0,0,608
-1=0,0,0,0,19192
-2=0,0,0,0,8271
+1=0,0,0,0,41828
+2=0,0,0,0,6598
 3=0,0,0,0,0
 4=0,0,0,0,0
-6=0,0,1280,579,991
+6=0,0,1280,579,150
 [RADebugBP]
 2=
 1=
@@ -118,7 +118,7 @@ MilestoneOnTime=2
 MilestoneOnDate=0
 MilestoneOnDateWhen=1
 MilestoneOnDateStatus=0
-MilestoneOnDateDate=7
+MilestoneOnDateDate=9
 MilestoneOnDateTimeYear=2018
 MilestoneOnDateTimeMonth=1
 MilestoneOnDateTimeDate=29
@@ -142,9 +142,9 @@ ProductVer2Range=0
 ProductVer3Range=0
 ProductVer4Range=0
 [PTimer]
-PTimer=14579636
+PTimer=16222310
 [Collapse]
-1=553713939,16896,133632,557056,3584
+1=553713939,67176960,545394818,33555780,1140850688,7341056
 2=
 3=
 4=
