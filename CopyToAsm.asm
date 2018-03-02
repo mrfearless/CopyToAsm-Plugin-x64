@@ -196,7 +196,9 @@ plugsetup PROC FRAME USES RBX setupStruct:QWORD
     Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTACMTCALLDEST1, Addr szCTACmntCallDest
     Invoke _plugin_menuaddseparator, hMenuOptions
     Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTALBLUSEADDRESS1, Addr szCTALblsUseAddress
-    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTALBLUSELABEL1, Addr szCTALblsUseLabel    
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTALBLUSELABEL1, Addr szCTALblsUseLabel
+    Invoke _plugin_menuaddseparator, hMenuOptions
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_COPYTOASM_FMT1, Addr szCopyToAsmFormat        
     Invoke CTALoadMenuIcon, IMG_MENU_OPTIONS, Addr hIconDataOptions
     Invoke _plugin_menuseticon, hMenuOptions, Addr hIconDataOptions
 
@@ -213,7 +215,9 @@ plugsetup PROC FRAME USES RBX setupStruct:QWORD
     Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTACMTCALLDEST2, Addr szCTACmntCallDest
     Invoke _plugin_menuaddseparator, hMenuOptions
     Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTALBLUSEADDRESS2, Addr szCTALblsUseAddress
-    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTALBLUSELABEL2, Addr szCTALblsUseLabel    
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_CTALBLUSELABEL2, Addr szCTALblsUseLabel
+    Invoke _plugin_menuaddseparator, hMenuOptions
+    Invoke _plugin_menuaddentry, hMenuOptions, MENU_COPYTOASM_FMT2, Addr szCopyToAsmFormat    
     Invoke _plugin_menuseticon, hMenuOptions, Addr hIconDataOptions
 
     Invoke CTALoadMenuIcon, IMG_COPYTOASM_MAIN, Addr hIconData
@@ -242,11 +246,9 @@ plugsetup PROC FRAME USES RBX setupStruct:QWORD
     .IF rax == 1
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTARANGELABELS1, Addr hImgCheck
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTARANGELABELS2, Addr hImgCheck
-        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeNormal
     .ELSE
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTARANGELABELS1, Addr hImgNoCheck
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTARANGELABELS2, Addr hImgNoCheck
-        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeMasm
     .ENDIF
     
     Invoke IniGetCmntOutsideRange
@@ -254,11 +256,9 @@ plugsetup PROC FRAME USES RBX setupStruct:QWORD
     .IF rax == 1
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTRANGE1, Addr hImgCheck
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTRANGE2, Addr hImgCheck
-        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeNormal
     .ELSE
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTRANGE1, Addr hImgNoCheck
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTRANGE2, Addr hImgNoCheck
-        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeMasm
     .ENDIF
     
     Invoke IniGetCmntJumpDest
@@ -266,11 +266,9 @@ plugsetup PROC FRAME USES RBX setupStruct:QWORD
     .IF rax == 1
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTJMPDEST1, Addr hImgCheck
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTJMPDEST2, Addr hImgCheck
-        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeNormal
     .ELSE
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTJMPDEST1, Addr hImgNoCheck
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTJMPDEST2, Addr hImgNoCheck
-        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeMasm
     .ENDIF
     
     Invoke IniGetCmntCallDest
@@ -278,11 +276,9 @@ plugsetup PROC FRAME USES RBX setupStruct:QWORD
     .IF rax == 1
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTCALLDEST1, Addr hImgCheck
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTCALLDEST2, Addr hImgCheck
-        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeNormal
-    .ELSE
+     .ELSE
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTCALLDEST1, Addr hImgNoCheck
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTACMTCALLDEST2, Addr hImgNoCheck
-        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeMasm
     .ENDIF    
 
     Invoke IniGetLblUseAddress
@@ -290,11 +286,9 @@ plugsetup PROC FRAME USES RBX setupStruct:QWORD
     .IF rax == 1
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSEADDRESS1, Addr hImgCheck
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSEADDRESS2, Addr hImgCheck
-        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeNormal
     .ELSE
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSEADDRESS1, Addr hImgNoCheck
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSEADDRESS2, Addr hImgNoCheck
-        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeMasm
     .ENDIF   
 
     Invoke IniGetLblUseLabel
@@ -302,12 +296,20 @@ plugsetup PROC FRAME USES RBX setupStruct:QWORD
     .IF rax == 1
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSELABEL1, Addr hImgCheck
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSELABEL2, Addr hImgCheck
-        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeNormal
     .ELSE
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSELABEL1, Addr hImgNoCheck
         Invoke _plugin_menuentryseticon, pluginHandle, MENU_CTALBLUSELABEL2, Addr hImgNoCheck
-        ;Invoke GuiAddLogMessage, Addr szLogFormatTypeMasm
     .ENDIF      
+
+    Invoke IniGetFormatType
+    mov g_FormatType, rax
+    .IF rax == 1
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_COPYTOASM_FMT1, Addr hImgCheck
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_COPYTOASM_FMT2, Addr hImgCheck
+    .ELSE
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_COPYTOASM_FMT1, Addr hImgNoCheck
+        Invoke _plugin_menuentryseticon, pluginHandle, MENU_COPYTOASM_FMT2, Addr hImgNoCheck
+    .ENDIF   
 
     Invoke GuiAddLogMessage, Addr szCopyToAsmInfo
     Invoke GuiGetWindowHandle
@@ -359,13 +361,11 @@ CBMENUENTRY PROC FRAME USES RBX cbType:QWORD, cbInfo:QWORD
             Invoke IniSetFormatType, 0
             Invoke _plugin_menuentryseticon, pluginHandle, MENU_COPYTOASM_FMT1, Addr hImgNoCheck
             Invoke _plugin_menuentryseticon, pluginHandle, MENU_COPYTOASM_FMT2, Addr hImgNoCheck
-            ;Invoke GuiAddLogMessage, Addr szLogFormatTypeNormal
         .ELSE
             mov g_FormatType, 1
             Invoke IniSetFormatType, 1
             Invoke _plugin_menuentryseticon, pluginHandle, MENU_COPYTOASM_FMT1, Addr hImgCheck
             Invoke _plugin_menuentryseticon, pluginHandle, MENU_COPYTOASM_FMT2, Addr hImgCheck
-            ;Invoke GuiAddLogMessage, Addr szLogFormatTypeMasm
         .ENDIF
 
     .ELSEIF eax == MENU_CTARANGELABELS1 || eax == MENU_CTARANGELABELS2
@@ -788,6 +788,9 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
             Invoke Strip_x64dbg_modulename, Addr szDisasmText, Addr szFormattedDisasmText
 
         .ENDIF
+
+        Invoke ConvertHexValues, Addr szFormattedDisasmText, Addr szDisasmText, g_FormatType
+        Invoke szCopy, Addr szDisasmText, Addr szFormattedDisasmText
         
         .IF qwOutput == 0 ; output to clipboard
             Invoke szCatStr, ptrClipboardData, Addr szFormattedDisasmText
@@ -1968,6 +1971,302 @@ Strip_x64dbg_modulename PROC FRAME lpszDisasmText:QWORD, lpszFormattedDisasmText
     .ENDIF
     ret
 Strip_x64dbg_modulename ENDP
+
+
+;=====================================================================================
+; Converts values to c style (dwstyle=0) or masm style (dwstyle=1)
+;-------------------------------------------------------------------------------------
+ConvertHexValues PROC FRAME USES RBX RDI RSI lpszStringToParse:QWORD, lpszStringOutput:QWORD, qwStyle:QWORD
+    LOCAL qwLenString:QWORD
+    LOCAL qwCurrentPos:QWORD
+    LOCAL qwStartHex:QWORD
+    LOCAL qwEndHex:QWORD
+    LOCAL qwTmpPos:QWORD
+    LOCAL ArrayHex[32]:QWORD
+    LOCAL qwCountHex:QWORD
+    LOCAL qwCurrentHex:QWORD
+    
+    .IF lpszStringToParse == 0 || lpszStringOutput == 0
+        mov rax, FALSE
+        ret
+    .ENDIF
+    
+    Invoke szLen, lpszStringToParse
+    .IF rax == 0
+        mov rax, FALSE
+        ret
+    .ENDIF
+    mov qwLenString, rax
+    
+    mov rsi, lpszStringToParse
+    mov rdi, lpszStringOutput
+    
+    mov qwCountHex, 0
+    mov qwStartHex, 0
+    mov qwEndHex,0 
+    mov qwCurrentPos, 0
+    mov rax, 0
+    .WHILE rax < qwLenString
+
+Continue:
+        
+        mov rsi, lpszStringToParse
+        add rsi, qwCurrentPos
+        movzx rax, byte ptr [rsi]
+   
+        .IF (al >= 'a' && al <= 'f') || (al >= 'A' && al <= 'F') || (al >= '0' && al <= '9') 
+            ;PrintText 'might be a hex value'
+            ; might be a hex value
+            .IF al == '0'
+                movzx rbx, byte ptr [rsi+1]
+                .IF bl == 'x'
+                    
+                    mov rax, qwCurrentPos
+                    mov qwStartHex, rax
+                    mov qwTmpPos, rax
+                    add qwTmpPos, 2
+                    add rsi, 2
+                    ;add dwCurrentPos, 2
+
+                .ELSE
+                    mov rax, qwCurrentPos
+                    mov qwStartHex, rax
+                    mov qwTmpPos, rax
+                .ENDIF
+            .ELSE
+                mov rax, qwCurrentPos
+                mov qwStartHex, rax
+                mov qwTmpPos, rax
+            .ENDIF
+            
+            ;mov rax, qwStartHex
+            ;PrintQWORD rax
+            
+            
+            movzx rax, byte ptr [rsi]
+            .WHILE (al >= 'a' && al <= 'f') || (al >= 'A' && al <= 'F') || (al >= '0' && al <= '9') ;&& al != 0 ;|| al == 'x'
+                inc qwTmpPos
+                inc rsi
+                movzx rax, byte ptr [rsi]
+                .IF al == 0
+                    .BREAK
+                .ENDIF
+            .ENDW
+            
+            movzx rax, byte ptr [rsi]
+            .IF al == 0
+                mov rax, qwLenString
+                mov qwCurrentPos, rax
+                mov rax, qwTmpPos
+                mov qwEndHex, rax
+                
+                ;PrintText 'End String'
+                ;mov rax, qwEndHex
+                ;PrintQWORD rax
+                jmp ProcessHex
+
+            .ELSEIF al == ']' || al == '(' || al == ')' || al == '[' || al == ',' || al == '*' || al == '+' || al == '-' ;|| al == ' ' 
+                .IF al == ' '
+                    ; doublecheck
+                    movzx rax, byte ptr [rsi-2]
+                    .IF al >= 'g' && al <= 'z' || al >= 'G' && al <= 'Z'
+                        ; false positive
+                        mov rax, qwTmpPos
+                        mov qwCurrentPos, rax
+                        mov qwStartHex, 0
+                        mov qwEndHex,0                        
+                    .ELSE
+                        mov rax, qwTmpPos
+                        mov qwCurrentPos, rax
+                        mov qwEndHex, rax
+                        jmp ProcessHex
+                    .ENDIF
+                .ELSE
+                    mov rax, qwTmpPos
+                    mov qwCurrentPos, rax
+                    mov qwEndHex, rax
+                    jmp ProcessHex
+                .ENDIF
+            
+            .ELSE ; false 
+                mov rax, qwTmpPos
+                mov qwCurrentPos, rax
+                mov qwStartHex, 0
+                mov qwEndHex,0
+            .ENDIF
+
+        .ELSEIF al == 0
+            ;PrintText 'al == 0 end'
+            .IF qwStartHex != 0
+                mov rax, qwLenString
+                mov qwEndHex, rax
+                jmp ProcessHex
+            .ENDIF
+        
+        .ELSEIF (al >= 'g' && al <= 'z') || (al >= 'G' && al <= 'Z') ; skip over most words that start with g-z and any subsequent ascii and numerics till end of word
+            ;PrintText 'alphanumeric skip'
+            movzx eax, byte ptr [rsi]
+            .WHILE (al >= 'a' && al <= 'z') || (al >= 'A' && al <= 'Z') || (al >= '0' && al <= '9') ;&& al != 0
+                inc qwCurrentPos
+                inc rsi
+                movzx rax, byte ptr [rsi]
+                .IF al == 0
+                    .BREAK
+                .endif
+            .ENDW
+            ;mov rax, qwCurrentPos
+            ;PrintQWORD rax
+            
+        .ELSE
+            inc qwCurrentPos
+        .ENDIF
+
+        mov rax, qwCurrentPos
+    .ENDW
+
+    .IF qwStartHex == 0
+        jmp Finished
+    .ENDIF
+
+ProcessHex:
+    ;PrintText 'ProcessHex'
+    ; do some processing
+    
+    mov rbx, 16
+    mov rax, qwCountHex
+    mul rbx
+    lea rbx, ArrayHex
+    add rbx, rax
+    mov rax, qwStartHex
+    mov [rbx], rax
+    mov rax, qwEndHex
+    mov [rbx+8], rax
+    inc qwCountHex
+    
+    mov rax, qwCurrentPos
+    .IF rax < qwLenString
+        mov qwStartHex, 0
+        mov qwEndHex,0
+        jmp Continue
+    .ENDIF
+
+Finished:
+    ;mov rax, qwCountHex
+    ;PrintQWORD rax 
+    ;lea ebx, ArrayHex
+    ;DbgDump ebx, 16
+
+    mov rsi, lpszStringToParse
+    mov rdi, lpszStringOutput
+    
+    mov qwCurrentHex, 0
+    mov qwCurrentPos, 0
+    mov rax, 0
+    .WHILE rax < qwLenString
+    
+        mov rax, qwCurrentHex
+        .IF rax < qwCountHex
+            mov rbx, 16
+            mov rax, qwCurrentHex
+            mul rbx
+            lea rbx, ArrayHex
+            add rbx, rax
+            mov rax, [rbx]
+            mov qwStartHex, rax
+            mov rax, [rbx+8]
+            mov qwEndHex, rax
+        .ELSE
+            mov qwStartHex, 0
+            mov qwEndHex,0 
+        .ENDIF
+
+        .IF qwStartHex != 0
+            mov rax, qwCurrentPos
+            .WHILE rax < qwStartHex
+                movzx rax, byte ptr [rsi]
+                mov byte ptr [rdi], al
+                inc rsi
+                inc rdi
+                inc qwCurrentPos
+                mov rax, qwCurrentPos
+            .ENDW
+            
+            ; start of hex
+            
+            .IF qwStyle == 0 ; c style hex - add 0x before all hex values
+                movzx rax, byte ptr [rsi]
+                .IF al == '0'
+                    movzx rbx, byte ptr [rsi+1]
+                    .IF bl == 'x'                
+                        ; already has 0x
+                    .ELSE
+                        ; add 0x
+                        mov byte ptr [rdi], '0'
+                        inc rdi
+                        mov byte ptr [rdi], 'x'
+                        inc rdi
+                    .ENDIF
+                .ELSE
+                    ; add 0x
+                    mov byte ptr [rdi], '0'
+                    inc rdi
+                    mov byte ptr [rdi], 'x'
+                    inc rdi
+                .ENDIF
+            
+            .ELSE ; masm style hex - add 0 if A-F and remove 0x before hex values
+                movzx rax, byte ptr [rsi]
+                .IF al == '0'
+                    movzx rbx, byte ptr [rsi+1]
+                    .IF bl == 'x'
+                        add rsi, 2
+                        add qwCurrentPos, 2
+                        movzx rax, byte ptr [rsi]
+                    .ENDIF
+                .ENDIF
+                
+                .IF al >= 'A' && al <= 'F'
+                    mov byte ptr [rdi], '0'
+                    inc rdi
+                .ENDIF
+                
+            .ENDIF
+            
+            mov rax, qwCurrentPos
+            .WHILE rax < qwEndHex
+                movzx rax, byte ptr [rsi]
+                mov byte ptr [rdi], al
+                inc rsi
+                inc rdi
+                inc qwCurrentPos
+                mov rax, qwCurrentPos
+            .ENDW
+            
+            
+            .IF qwStyle == 1 ; masm style hex - append 'h'
+                mov byte ptr [rdi], 'h'
+                inc rdi
+            .ENDIF
+            
+            inc qwCurrentHex
+            
+        .ELSE
+            movzx rax, byte ptr [rsi]
+            mov byte ptr [rdi], al
+            inc rsi
+            inc rdi
+            inc qwCurrentPos
+        
+        .ENDIF
+        
+        mov rax, qwCurrentPos
+    .ENDW
+    mov byte ptr [rdi], 0h
+    
+    mov rax, TRUE
+    ret
+
+ConvertHexValues ENDP
 
 
 ;-------------------------------------------------------------------------------------
