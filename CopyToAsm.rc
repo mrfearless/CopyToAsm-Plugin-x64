@@ -1,2 +1,6 @@
+#include "Res/OptionsPanel2Dlg.rc"
+#include "Res/OptionsPanel1Dlg.rc"
+#include "Res/OptionsPanel0Dlg.rc"
+#include "Res/OptionsDlg.rc"
 #include "Res/CopyToAsmRes.rc"
 #include "Res/CopyToAsmVer.rc"

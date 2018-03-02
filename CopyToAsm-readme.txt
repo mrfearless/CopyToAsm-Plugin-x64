@@ -2,7 +2,7 @@
 ;
 ; CopyToAsm-readme.txt
 ;
-; v1.0.0.4 - Last updated 02/03/201
+; v1.0.0.5 - Last updated 02/03/201
 ;
 ;-------------------------------------------------------------------------------------
 
@@ -35,6 +35,7 @@ Features
 - Code comments to indicate start/end and outside range.
 - Options to adjust comments and label outputs.
 - Format hex values as C style (0x) or Masm style.
+- Registered commands: ctac/ctar
 
 
 Notes
@@ -45,3 +46,15 @@ Notes
 - 07/02/2018 v1.0.0.2
 - 09/02/2018 v1.0.0.3 - added call labels
 - 02/03/2018 v1.0.0.4 - added c style/masm style hex values formatting
+- 02/03/2018 v1.0.0.5 - added options dialog and registered commands
+
+
+
+
+
+
+
+
+
+
+
