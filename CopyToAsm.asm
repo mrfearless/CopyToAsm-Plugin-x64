@@ -726,7 +726,7 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
         
         ; Check instruction is in our call table as a destination for a call, if so insert a label
         Invoke CTAAddressInCallTable, qwCurrentAddress
-        .IF rax != 0
+        .IF rax != -1
             Invoke CTALabelFromCallEntry, rax, Addr szLabelX
             .IF qwOutput == 0 ; output to clipboard
                 Invoke szCatStr, ptrClipboardData, Addr szCRLF
@@ -757,8 +757,19 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
             ;.ENDIF
             mov JmpDestination, rax
             Invoke Strip_x64dbg_calls, Addr szDisasmText, Addr szCALLFunction
-            Invoke szCopy, Addr szCall, Addr szFormattedDisasmText
-            Invoke szCatStr, Addr szFormattedDisasmText, Addr szCALLFunction
+            
+            Invoke IsCallApiNameHexOnly, Addr szCALLFunction
+            .IF rax == FALSE
+                Invoke szCopy, Addr szCall, Addr szFormattedDisasmText
+                Invoke szCatStr, Addr szFormattedDisasmText, Addr szCALLFunction
+            .ELSE
+                Invoke szCopy, Addr szCall, Addr szFormattedDisasmText
+                Invoke szCatStr, Addr szFormattedDisasmText, Addr szUnderscore
+                Invoke szCatStr, Addr szFormattedDisasmText, Addr szCALLFunction
+             .ENDIF                
+            
+            ;Invoke szCopy, Addr szCall, Addr szFormattedDisasmText
+            ;Invoke szCatStr, Addr szFormattedDisasmText, Addr szCALLFunction
             
             ;mov rax, bii.address
             ;PrintQWORD rax
@@ -829,10 +840,12 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
             Invoke Strip_x64dbg_anglebrackets, Addr szFormattedDisasmText, Addr szDisasmText
             Invoke Strip_x64dbg_modulename, Addr szDisasmText, Addr szFormattedDisasmText
 
+            Invoke ConvertHexValues, Addr szFormattedDisasmText, Addr szDisasmText, g_FormatType
+            Invoke szCopy, Addr szDisasmText, Addr szFormattedDisasmText
+
         .ENDIF
 
-        Invoke ConvertHexValues, Addr szFormattedDisasmText, Addr szDisasmText, g_FormatType
-        Invoke szCopy, Addr szDisasmText, Addr szFormattedDisasmText
+
         
         .IF qwOutput == 0 ; output to clipboard
             Invoke szCatStr, ptrClipboardData, Addr szFormattedDisasmText
@@ -1108,7 +1121,7 @@ CTABuildCallTable PROC FRAME USES RBX qwStartAddress:QWORD, qwFinishAddress:QWOR
             .ELSE ; internal function call        
                 
                 Invoke CTAAddressInCallTable, CallDestination
-                .IF rax == 0
+                .IF rax == -1
                 
                     mov rbx, ptrCallEntry
                     mov rax, CallDestination
@@ -1235,7 +1248,7 @@ CTAAddressInJmpTable ENDP
 
 
 ;-------------------------------------------------------------------------------------
-; returns 0 if address is not in CALLTABLE, otherwise returns an 1-based index in eax
+; returns -1 if address is not in CALLTABLE, otherwise returns an index in eax
 ; each address can be checked to see if it a destination for a call instruction
 ; if it is then a label can be created an inserted before the instruction
 ;-------------------------------------------------------------------------------------
@@ -1244,7 +1257,7 @@ CTAAddressInCallTable PROC FRAME USES RBX qwAddress:QWORD
     LOCAL ptrCallEntry:QWORD
     
     .IF CALLTABLE == 0 || CALLTABLE_ENTRIES_TOTAL == 0
-        mov rax, 0
+        mov rax, -1
         ret
     .ENDIF
     
@@ -1257,14 +1270,14 @@ CTAAddressInCallTable PROC FRAME USES RBX qwAddress:QWORD
         mov rax, [rbx].CALLTABLE_ENTRY.qwAddress
         .IF rax == qwAddress
             mov rax, nCallEntry
-            inc rax ; for 1 based index
+            ;inc rax ; for 1 based index
             ret
         .ENDIF
         add ptrCallEntry, SIZEOF CALLTABLE_ENTRY
         inc nCallEntry
         mov rax, nCallEntry
     .ENDW
-    mov rax, 0
+    mov rax, -1
     ret
 CTAAddressInCallTable ENDP
 
@@ -1705,7 +1718,7 @@ CTALabelFromCallEntry PROC FRAME USES RBX qwCallEntry:QWORD, lpszLabel:QWORD
     
     mov rbx, SIZEOF CALLTABLE_ENTRY
     mov rax, qwCallEntry
-    dec rax ; adjust for 1 based index
+    ;dec rax ; adjust for 1 based index
     .IF rax > CALLTABLE_ENTRIES_TOTAL
         Invoke szCopy, Addr szErrCallLabel, lpszLabel
         ret
@@ -1721,8 +1734,15 @@ CTALabelFromCallEntry PROC FRAME USES RBX qwCallEntry:QWORD, lpszLabel:QWORD
     Invoke GuiGetDisassembly, qwCallAddress, Addr szCallLabelText
     
     Invoke Strip_x64dbg_calls, Addr szCallLabelText, Addr szCALLFunction
-    Invoke szCatStr, Addr szCALLFunction, Addr szColon
-    Invoke szCopy, Addr szCALLFunction, lpszLabel
+    Invoke IsCallApiNameHexOnly, Addr szCALLFunction
+    .IF rax == FALSE
+        Invoke szCatStr, Addr szCALLFunction, Addr szColon
+        Invoke szCopy, Addr szCALLFunction, lpszLabel
+    .ELSE
+        Invoke szCopy, Addr szUnderscore, lpszLabel
+        Invoke szCatStr, lpszLabel, Addr szCALLFunction
+        Invoke szCatStr, lpszLabel, Addr szColon
+    .ENDIF
     ret
 
 CTALabelFromCallEntry ENDP
@@ -1791,56 +1811,6 @@ CTAJmpLabelFromJmpEntry PROC FRAME USES RDI RSI qwJmpEntry:QWORD, qwAddress:QWOR
     .ENDIF
     ret
 CTAJmpLabelFromJmpEntry ENDP
-
-
-
-;-------------------------------------------------------------------------------------
-; Adjust mnemonic to remove 0x and add h for masm style hex values
-;-------------------------------------------------------------------------------------
-CTAMnemonicToMasmHex PROC FRAME USES RBX RDI RSI lpszDisasmText:QWORD, lpszFormattedDisasmText:QWORD, bii:QWORD
-    LOCAL szMnemToReplace[MAX_MNEMONIC_SIZE]:BYTE
-    LOCAL szMnemToReplaceWith[MAX_MNEMONIC_SIZE]:BYTE
-    LOCAL szTemp[MAX_MNEMONIC_SIZE]:BYTE
-    LOCAL pMnemonic:QWORD
-    
-    mov rbx, bii
-    lea rax, [rbx].BASIC_INSTRUCTION_INFO.memory.mnemonic
-    mov pMnemonic, rax
-    
-    ; remove any *1- or *1+
-    Invoke InString, 1, pMnemonic, Addr szMnemStarOnePlus
-    .IF sqword ptr rax > 0
-        Invoke szRep, pMnemonic, Addr szMnemToReplace, Addr szMnemStarOnePlus, Addr szPlus
-    .ELSE
-        Invoke InString, 1, pMnemonic, Addr szMnemStarOneMinus
-        .IF sqword ptr rax > 0
-            Invoke szRep, pMnemonic, Addr szMnemToReplace, Addr szMnemStarOneMinus, Addr szMinus
-        .ELSE
-            Invoke szCopy, pMnemonic, Addr szMnemToReplace
-        .ENDIF
-    .ENDIF
-    
-    ; remove any 0x in string
-    Invoke InString, 1, Addr szMnemToReplace, Addr szHex
-    .IF sqword ptr rax > 0
-        Invoke szRep, szMnemToReplace, Addr szTemp, Addr szHex, Addr szNull
-        Invoke szCopy, Addr szTemp, Addr szMnemToReplace
-        
-        Invoke InString, 1, Addr szMnemToReplace, Addr szHex
-        .IF sqword ptr rax > 0
-            Invoke szRep, szMnemToReplace, Addr szTemp, Addr szHex, Addr szNull
-            Invoke szCopy, Addr szTemp, Addr szMnemToReplace
-        .ENDIF
-    .ENDIF
-    
-    Invoke szCopy, Addr szMnemToReplace, Addr szMnemToReplaceWith
-    Invoke szCatStr, Addr szMnemToReplaceWith, Addr szMasmHexH    
-    
-    Invoke szRep, lpszDisasmText, lpszFormattedDisasmText, Addr szMnemToReplace, Addr szMnemToReplaceWith
-
-    ret
-
-CTAMnemonicToMasmHex ENDP
 
 
 ;=====================================================================================
@@ -2310,6 +2280,38 @@ Finished:
     ret
 
 ConvertHexValues ENDP
+
+
+
+;-------------------------------------------------------------------------------------
+; determines if CALL <apiname> is a hex value only
+;-------------------------------------------------------------------------------------
+IsCallApiNameHexOnly PROC FRAME USES RBX lpszApiName:QWORD
+    
+    .IF lpszApiName == 0
+        mov rax, FALSE
+        ret
+    .ENDIF
+
+    mov rbx, lpszApiName
+    movzx rax, byte ptr [rbx]
+    .WHILE al != 0
+        
+        .IF (al >= 'A' && al <= 'F') || (al >= '0' && al <= '9') ; al >= 'a' && al <= 'f'
+            ; good, continue to check rest to see if hex chars
+        .ELSE
+            mov rax, FALSE
+            ret
+        .ENDIF
+        
+        inc rbx
+        movzx eax, byte ptr [rbx]
+    .ENDW
+    ; got here, means entire string was checked and all chars are hex only
+    mov rax, TRUE
+    ret
+
+IsCallApiNameHexOnly ENDP
 
 
 ;-------------------------------------------------------------------------------------

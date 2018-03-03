@@ -46,9 +46,6 @@ CTAOutputCallLabelsOutsideRangeAfter    PROTO :QWORD, :QWORD
 CTARefViewCallLabelsOutsideRangeBefore  PROTO :QWORD, :QWORD
 CTARefViewCallLabelsOutsideRangeAfter   PROTO :QWORD, :QWORD
 
-CTAMnemonicToMasmHex                PROTO :QWORD, :QWORD, :QWORD
-CTAInternalCallToMasmHex            PROTO :QWORD, :QWORD, :QWORD
-
 CTA_AddColumnsToRefView             PROTO :QWORD, :QWORD
 CTA_AddRowToRefView                 PROTO :QWORD, :QWORD
 
@@ -57,7 +54,7 @@ Strip_x64dbg_segments               PROTO :QWORD, :QWORD
 Strip_x64dbg_anglebrackets          PROTO :QWORD, :QWORD
 Strip_x64dbg_modulename             PROTO :QWORD, :QWORD
 ConvertHexValues                    PROTO :QWORD, :QWORD, :QWORD
-
+IsCallApiNameHexOnly                PROTO :QWORD
 
 cbCTAC                              PROTO :QWORD, :QWORD
 cbCTAR                              PROTO :QWORD, :QWORD
