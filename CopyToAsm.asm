@@ -762,6 +762,11 @@ DoCopyToAsm PROC FRAME USES RBX RCX qwOutput:QWORD
             .IF rax == FALSE
                 Invoke szCopy, Addr szCall, Addr szFormattedDisasmText
                 Invoke szCatStr, Addr szFormattedDisasmText, Addr szCALLFunction
+                
+                ; convert any 'call qword ptr [somehex]' type calls to appropriate hex values
+                Invoke ConvertHexValues, Addr szFormattedDisasmText, Addr szDisasmText, g_FormatType
+                Invoke szCopy, Addr szDisasmText, Addr szFormattedDisasmText                   
+                
             .ELSE
                 Invoke szCopy, Addr szCall, Addr szFormattedDisasmText
                 Invoke szCatStr, Addr szFormattedDisasmText, Addr szUnderscore
@@ -1852,6 +1857,10 @@ Strip_x64dbg_calls PROC FRAME USES RDI RSI lpszCallText:QWORD, lpszAPIFunction:Q
         .ENDIF
     
         movzx rax, byte ptr [rsi]
+        .IF al == '@' ; check for fastcall functions starting with @ - https://github.com/mrfearless/CopyToAsm-Plugin-x86/issues/1
+            inc rsi
+            movzx rax, byte ptr [rsi]
+        .ENDIF        
         .WHILE al != '@' && al != '>' && al != 0
     ;        .IF al == 0h
     ;            mov rdi, lpszAPIFunction

@@ -2,7 +2,7 @@
 ;
 ; CopyToAsm-readme.txt
 ;
-; v1.0.0.6 - Last updated 03/03/201
+; v1.0.0.7 - Last updated 05/03/2018
 ;
 ;-------------------------------------------------------------------------------------
 
@@ -48,6 +48,7 @@ Notes
 - 02/03/2018 v1.0.0.4 - added c style/masm style hex values formatting
 - 02/03/2018 v1.0.0.5 - added options dialog and registered commands
 - 03/03/2018 v1.0.0.6 - call labels adjustments and _ prefix for hex only names
+- 05/03/2018 v1.0.0.7 - add check for fastcall functions starting with '@'
 
 
 
